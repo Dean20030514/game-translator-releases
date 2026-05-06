@@ -192,6 +192,22 @@ CSV_PROFILE = EngineProfile(
     context_lines=0,
 )
 
+# Round 55: Unity XUnity AutoTranslator engine.
+# XUAT files are pure text (`original=translation` per line + `//` comments
+# + `r:"<pattern>"="<replacement>"` regex rules). No special placeholder
+# patterns by default — Unity-runtime tokens (\d backrefs in regex rules)
+# are passed through pattern preservation in the engine itself, not via
+# protect_placeholders.
+UNITY_XUNITY_PROFILE = EngineProfile(
+    name="unity_xunity",
+    display_name="Unity (XUnity AutoTranslator)",
+    placeholder_patterns=[],
+    skip_line_patterns=[],
+    prompt_addon_key="generic",
+    supports_context=False,
+    context_lines=0,
+)
+
 # 引擎 Profile 注册表
 ENGINE_PROFILES: dict[str, EngineProfile] = {
     "renpy": RENPY_PROFILE,
@@ -199,4 +215,5 @@ ENGINE_PROFILES: dict[str, EngineProfile] = {
     "rpgmaker_mz": RPGMAKER_MV_PROFILE,   # MZ 和 MV 格式完全一致
     "csv": CSV_PROFILE,
     "jsonl": CSV_PROFILE,                   # JSONL 复用 CSV Profile
+    "unity_xunity": UNITY_XUNITY_PROFILE,
 }

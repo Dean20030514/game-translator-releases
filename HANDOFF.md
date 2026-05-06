@@ -1,10 +1,10 @@
-# HANDOFF — Round 54 末 → Round 55 起点
+# HANDOFF — Round 55 末 → Round 56 起点
 
 <!-- VERIFIED-CLAIMS-START -->
-tests_total: 467
-test_files: 32
+tests_total: 483
+test_files: 33
 ci_steps: 34
-assertion_points: 593
+assertion_points: 609
 <!-- VERIFIED-CLAIMS-END -->
 
 > **上方 fenced 块是声明数字的唯一位置**。其他文档（`CLAUDE.md` / `.cursorrules` / `CHANGELOG.md` / `_archive/EVOLUTION.md` / `README.md` 等）只能引用这些数字，**不能重新声明**。`scripts/verify_docs_claims.py` 在 pre-commit hook 自动检查，drift fails the commit。
@@ -22,11 +22,11 @@ assertion_points: 593
 
 ## 状态一句话
 
-纯 Python 零依赖**zh-only**游戏汉化工具。**Round 54 完成 backlog 重新评估**：将 r53 末 12 项 backlog 中 **8 项 retire 到 architectural decision**（A-H-3 Medium / Deep / RPG Maker Plugin Commands / 加密 RPA-RGSS / RPG Maker VX-Ace / Wolf RPG Editor / Unreal Engine / HTML5），actionable backlog 缩减到 3 项。**纯文档轮，零代码变更，VERIFIED-CLAIMS 数字不变**；**连续 14 轮 0 CRITICAL correctness**（r35-r54）。
+纯 Python 零依赖**zh-only**游戏汉化工具。**Round 55 新增 Unity XUnity AutoTranslator 引擎支持**：[`engines/unity_xunity.py`](engines/unity_xunity.py) 解析 XUAT 导出的 `original=translation` 文本文件 + 注释保留 + 正则规则 `r:"<pattern>"="<replacement>"` 支持（pattern 不动，仅翻译 replacement）+ BOM/CRLF round-trip byte-identical + 50 MB OOM cap + manual `--engine unity` / `--engine unity_xunity`。覆盖 ~10% 用户场景（不解析 AssetBundle）。16 单元测试 PASS。**连续 15 轮 0 CRITICAL correctness**（r35-r55）。
 
 ## 同步状态
 
-- r54 单 docs sync commit 待 push（NEVER push 政策保留给用户）
+- r55 单 commit 待 push（NEVER push 政策保留给用户）
 - 本地未 push（按 NEVER push 政策保留 commit 决策给用户）
 - pre-commit hook 已激活（`git config core.hooksPath = .git-hooks`）
 - 4 件套 + r52 C1 push-status drift check 自动 enforce：py_compile + 800 行 cap + meta-runner + `verify_docs_claims --fast` (含 push-status check)
@@ -51,32 +51,29 @@ assertion_points: 593
 | 模块分层 | ✅ deferred import 保 layering |
 | docs claim drift | ✅ 4 项 prevention 自动化 |
 | debt closure | ✅ Round 50 起规则强制；r51 / r52 / r53 / r54 各执行有效 |
-| backlog 复杂度 | ✅ **r54 重新评估：12 项 → 3 项 actionable**（8 项 retire 到 architectural decision） |
-| 累计审计 | ✅ 连续 14 轮 0 CRITICAL correctness（r35-r54） |
+| backlog 复杂度 | ✅ r54 重新评估：12 项 → 3 项 actionable；r55 推进 1 项 → 剩 **2 项 actionable** |
+| Unity XUnity 引擎 | ✅ **r55 新增**：[`engines/unity_xunity.py`](engines/unity_xunity.py) + 16 单元测试 + manual `--engine unity` |
+| 累计审计 | ✅ 连续 15 轮 0 CRITICAL correctness（r35-r55） |
 
-## 推荐的 Round 55+ 工作项
+## 推荐的 Round 56+ 工作项
 
-> Round 54 完成 backlog 重新评估后**actionable backlog 仅 3 项**（按 ROI 排序）。延续 r52 起的"减法 + 聚焦"方向。
-
-### 🟢 高 ROI 推荐（用户已建议路径 A → r55 推进）
-
-1. **Unity XUnity AutoTranslator 接入**（P2，10% 用户面）
-   - 不做 AssetBundle 解析，仅支持 XUnity 导出的 `original=translation` 文本文件
-   - 解析极简单（每行 split `=`），纯标准库可行
-   - 估算：~150 行实现 + ~80 行测试 + docs sync
-   - 风险：低（孤立新模块，不动核心 hot path，不影响 13/14 轮 0 CRITICAL streak）
+> Round 55 推进 1 项（Unity XUnity）后 **actionable backlog 仅剩 2 项**（按 ROI 排序）。延续 r52 起"减法 + 聚焦"方向。
 
 ### 🟡 中 ROI 可选（按需启动）
 
-2. **Godot 引擎接入**（P1，3% 用户面）
+1. **Godot 引擎接入**（P1，3% 用户面）
    - `.tscn` / `.gd` / `.tres` 是文本格式，纯标准库可行
    - `tr("...")` 正则提取 + Godot CSV 翻译表直接走 CSVEngine
    - 估算：~300 行实现 + 测试
 
-3. **Kirikiri 2/Z + TyranoBuilder**（P2，5% + 3% 用户面）
+2. **Kirikiri 2/Z + TyranoBuilder**（P2，5% + 3% 用户面）
    - 都是 `.ks` 文本格式，可正则提取
    - `.scn` 二进制需 VNTextPatch 外部工具（间接支持）
    - 估算：~250 行实现 + 测试
+
+### ✅ Round 55 完成（1 项；从 actionable backlog 移到 已完成）
+
+- ~~**Unity XUnity AutoTranslator 接入**~~ — **r55 完成**：[`engines/unity_xunity.py`](engines/unity_xunity.py) 实现 detect/extract/write_back，支持 `original=translation` 普通行 + `//` 注释保留 + `r:"<pattern>"="<replacement>"` 正则规则（pattern 不动，仅 replacement 提交 LLM）+ UTF-8 BOM round-trip + CRLF/LF 行尾保留 + 50 MB OOM cap + TOCTOU 防御。CLI `--engine unity` 与 `--engine unity_xunity` 都接受。16 单元测试 PASS（含 round-trip byte-identical assertion）。
 
 ### ⚫ 监控项（informational watchlist，r53 已全部闭合）
 
@@ -113,11 +110,11 @@ assertion_points: 593
 | 变更日志 | `CHANGELOG.md`（极简入口）+ `_archive/EVOLUTION.md`（r1-r54） |
 | 全量历史 | `_archive/CHANGELOG_FULL.md` + `_archive/CHANGELOG_RECENT_r52.md`（r48-r52 详细） |
 | 入口 | `main.py` / `gui.py`（mixin） / `one_click_pipeline.py` |
-| 引擎抽象 | `engines/{engine_base, engine_detector, generic_pipeline, renpy_engine, rpgmaker_engine, csv_engine}.py` |
+| 引擎抽象 | `engines/{engine_base, engine_detector, generic_pipeline, renpy_engine, rpgmaker_engine, csv_engine, unity_xunity}.py` |
 | 核心 | `core/{api_client, api_plugin, config, glossary, prompts, translation_db, translation_utils, http_pool, pickle_safe, font_patch, runtime_hook_emitter, file_safety}.py` |
 | 流水线 | `pipeline/{helpers, gate, stages}.py` |
 | 翻译子模块 | `translators/{direct, tl_mode, retranslator, screen, tl_parser, renpy_text_utils}.py` + 7 私有子模块（含 r53 `_tl_retry.py`） |
-| 测试 | `tests/test_all.py` meta-runner + 32 独立 suites（含 r53 `test_tl_retry.py` + `test_pickle_safe_redteam.py`） |
+| 测试 | `tests/test_all.py` meta-runner + 33 独立 suites（含 r53 `test_tl_retry.py` + `test_pickle_safe_redteam.py` + r55 `test_unity_xunity_engine.py`） |
 | docs | `docs/ARCHITECTURE.md`（架构 + 数据流 + 校验链 + 引擎指南 + 测试体系）+ `docs/REFERENCE.md`（常量 + 错误码 + 路线图 + r54 retire） |
 | CI | `.github/workflows/test.yml`（双 OS matrix × 3 Python = 6 jobs；step 数见 VERIFIED-CLAIMS）+ `scripts/verify_workflow.py` |
 | 开发者工具 | `.gitattributes` + `.gitignore` + `build.py --clean-only` + `.git-hooks/pre-commit` + `scripts/{install_hooks.sh, verify_workflow.py, verify_docs_claims.py, migrate_db_v2_to_v1.py}` |
@@ -134,16 +131,17 @@ assertion_points: 593
 4. **（按需）** `_archive/EVOLUTION.md` — 历史决策（含 r54 段）
 5. **（按需）** `_archive/CHANGELOG_RECENT_r52.md` — 最近 5 轮（r48-r52）详细
 
-**Round 55 关键约束**：
-- audit findings 必须**同轮 fix，no tier exemption**（r50 起 written + enforced；r51 / r52 / r53 / r54 各执行有效）
+**Round 56 关键约束**：
+- audit findings 必须**同轮 fix，no tier exemption**（r50 起 written + enforced；r51 / r52 / r53 / r54 / r55 各执行有效）
 - 数字声称只在本文件 `VERIFIED-CLAIMS` 块声明
 - 修改 `CLAUDE.md` 必须同步 `.cursorrules`
 - 修改 logger namespace / repo URL self-references 必须保持 `tests/test_repo_rename_consistency.py` 4 contract tests 全 PASS（r51 加固）
 - 6 处 anonymousException 上游归属永远不能被任何 sed/refactor 误删
 - **目标语言固定 zh**（r52 C4 BREAKING）— 任何 multi-target / lang_config / target-lang 重新引入必须先 plan-first 撤销 r52 C4
-- **插件强制 subprocess sandbox**（r52 C3 BREAKING）— 任何 importlib in-process loader 重新引入必须先 plan-first 撤销 r52 C3
+- **插件强制 subprocess sandbox**(r52 C3 BREAKING）— 任何 importlib in-process loader 重新引入必须先 plan-first 撤销 r52 C3
 - **`tl_mode.py` retry 路径必须保持并发**（r53 W1）— 任何 sequential retry 重新引入必须先 plan-first
 - **LLM ID drift detection 必须保留 layer-6**（r53 W3）— 任何主 stage / retry stage 移除 `detect_id_drift()` 必须先 plan-first
 - **Pickle 白名单不得放宽**（r53 监控 #1 verified）— 任何向 `_SAFE_BUILTINS` / `_SAFE_COLLECTIONS` / `_SAFE_CODECS` / `_SAFE_COPYREG` 添加新 entry 必须先跑红队 audit
 - **r54 retired 8 项不应被无证据重新打开**（r54 backlog 评估纪律）— A-H-3 Medium / Deep / RPG Maker Plugin Commands / 加密归档 / RPG Maker VX-Ace / Wolf RPG Editor / Unreal Engine / HTML5 任一项重新打开必须先有具体用户场景证据 + plan-first 论证 ROI 翻转
+- **Unity XUnity 引擎解析契约**（r55 hard contract #13）— XUAT 行解析必须用 `str.partition('=')` (split first only)，注释行 `//` 必须 round-trip preserve，正则规则 `r:"..."="..."` 翻译时 pattern 必须保留不动只翻译 replacement；任何修改解析或回写语义必须先 plan-first
 - pre-commit hook 已激活，会自动 enforce file-size cap + drift check + r52 C1 push-status drift check

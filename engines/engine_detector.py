@@ -27,6 +27,7 @@ class EngineType(enum.Enum):
     RPGMAKER_VXACE = "rpgmaker_vxace"
     CSV = "csv"
     JSONL = "jsonl"
+    UNITY_XUNITY = "unity_xunity"   # Round 55
     UNKNOWN = "unknown"
 
 
@@ -114,6 +115,14 @@ def create_engine(engine_type: EngineType):
         logger.error("[DETECT] RPG Maker VX/Ace 需要 rubymarshal 库，尚未实现")
         return None
 
+    if engine_type == EngineType.UNITY_XUNITY:
+        try:
+            from engines.unity_xunity import UnityXUnityEngine
+            return UnityXUnityEngine()
+        except ImportError:
+            logger.error("[DETECT] Unity XUnity 引擎模块加载失败")
+            return None
+
     return None
 
 
@@ -138,6 +147,9 @@ _MANUAL_MAP: dict[str, EngineType] = {
     "rpgmaker_mz": EngineType.RPGMAKER_MV,
     "csv": EngineType.CSV,
     "jsonl": EngineType.JSONL,
+    # Round 55: Unity XUnity AutoTranslator (both names accepted)
+    "unity": EngineType.UNITY_XUNITY,
+    "unity_xunity": EngineType.UNITY_XUNITY,
 }
 
 

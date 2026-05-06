@@ -10,7 +10,7 @@
 
 **当前数字**（测试数 / 文件数 / CI 步骤 / 断言点）：见 [HANDOFF.md](HANDOFF.md) 顶部 `<!-- VERIFIED-CLAIMS-START -->` 块 — **单一声称源**。本文 prose 不再独立声称数字。
 
-**质量水位**：direct-mode 漏翻率 4.01%（仅适用 English source，详见下方"已知限制"）；tl-mode 翻译成功率 99.97%（r52 实测 The Tyrant 74098 entries / **99.991%**）；连续 13 轮 0 CRITICAL correctness（r35-r53）。
+**质量水位**：direct-mode 漏翻率 4.01%（仅适用 English source，详见下方"已知限制"）；tl-mode 翻译成功率 99.97%（r52 实测 The Tyrant 74098 entries / **99.991%**）；连续 15 轮 0 CRITICAL correctness（r35-r55）。Round 55 起新增 Unity XUnity 引擎覆盖 ~10% 用户场景。
 
 ---
 
@@ -137,3 +137,4 @@ scripts/         verify_docs_claims.py / verify_workflow.py / install_hooks.sh
 7. **`tl_mode.py` retry 路径必须保持并发**（r53 W1 契约）— 任何 sequential retry 重新引入必须先 plan-first
 8. **LLM ID drift detection 必须保留 layer-6**（r53 W3 契约）— 任何主 stage / retry stage 移除 `detect_id_drift()` 必须先 plan-first
 9. **Pickle 白名单不得放宽**（r53 监控 #1 verified）— 任何向 `_SAFE_BUILTINS` / `_SAFE_COLLECTIONS` / `_SAFE_CODECS` / `_SAFE_COPYREG` 添加新 entry 必须先跑 `tests/test_pickle_safe_redteam.py` 红队 audit
+10. **Unity XUnity 引擎解析契约**（r55 契约）— XUAT 行解析必须用 `str.partition('=')`（split first only），注释行 `//` 必须 round-trip preserve，正则规则 `r:"<pattern>"="<replacement>"` 翻译时 pattern 必须保留不动只翻译 replacement；任何修改解析或回写语义必须先 plan-first，并保持 `tests/test_unity_xunity_engine.py` round-trip byte-identical 测试 PASS

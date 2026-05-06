@@ -202,8 +202,10 @@ def main():
     parser.add_argument("--tl-screen", action="store_true",
                         help="翻译 screen 中的裸英文字符串（text/textbutton/Tooltip）")
     parser.add_argument("--engine", default="auto",
-                        choices=["auto", "renpy", "rpgmaker", "csv", "jsonl"],
-                        help="游戏引擎类型 (默认: auto 自动检测)")
+                        choices=["auto", "renpy", "rpgmaker", "csv", "jsonl",
+                                 "unity", "unity_xunity"],
+                        help="游戏引擎类型 (默认: auto 自动检测；"
+                             "unity / unity_xunity 用于 XUnity AutoTranslator 导出文件)")
     parser.add_argument("--config", default="", metavar="PATH",
                         help="配置文件路径（默认自动查找 renpy_translate.json）")
     parser.add_argument("--allow-symlink", action="store_true", default=False,

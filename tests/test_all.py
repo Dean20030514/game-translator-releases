@@ -22,6 +22,7 @@ latter past the same 800-line limit.
 * ``test_runtime_hook.py``          — runtime-hook emitter + v2 schema + gui overrides
 * ``test_tl_retry.py``              — Round 53 W1/W3: retry stage parallelism + LLM ID drift detection
 * ``test_pickle_safe_redteam.py``   — Round 53 monitor #1: pickle whitelist red-team
+* ``test_unity_xunity_engine.py``   — Round 55: Unity XUnity AutoTranslator engine
 """
 
 import sys
@@ -37,6 +38,7 @@ from tests import (
     test_runtime_hook,
     test_tl_retry,
     test_pickle_safe_redteam,
+    test_unity_xunity_engine,
 )
 
 
@@ -50,6 +52,7 @@ def main() -> int:
     total += test_runtime_hook.run_all()
     total += test_tl_retry.run_all()
     total += test_pickle_safe_redteam.run_all()
+    total += test_unity_xunity_engine.run_all()
     print()
     print("=" * 40)
     print(f"ALL {total} TESTS PASSED")

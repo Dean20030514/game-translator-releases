@@ -202,9 +202,27 @@
 
 **连续 14 轮 0 CRITICAL correctness 保持**（r35-r54）。
 
+## 阶段十四（r55）— Unity XUnity AutoTranslator 引擎接入 + 15th 0-CRITICAL Streak
+
+5 phases（engine module + 注册 + CLI + tests + docs sync），新增 1 引擎模块 + 1 测试文件 + 16 单元测试：
+
+- **本轮触发**：r54 末重新评估后 actionable backlog 仅剩 3 项（Unity XUnity / Godot / Kirikiri+TyranoBuilder），用户选择"路径 A"推进 Unity XUnity（最高 ROI：10% 用户面 / 实现简单 / 不动核心 hot path）。
+- **设计原则**：不解析 Unity AssetBundle 或 .dll 资源（项目定位之外），只支持 XUAT 自身导出的纯文本翻译文件，这覆盖了 Unity 汉化工作流的大多数场景。
+- **XUAT 文件格式**：每行一种类型 — 空行 / `//` 注释 / `original=translation` / `r:"<pattern>"="<replacement>"`（正则规则）/ malformed。等号解析必须用 `str.partition('=')`（split first only）以正确处理 original 含 `=` 的情形。
+- **正则规则**（用户 Q3 选支持）：pattern 是 Unity 运行时 regex 不可翻译，replacement 是用户期望的目标语言文本，仅 replacement 提交 LLM；write_back 重组 `r:"<pattern>"="<translated>"`。pattern 保留不动是 hard contract #13。
+- **Round-trip byte-identity**：write_back 重读源文件 line-by-line，仅替换有 translation 的行；空行 / 注释 / 行序 / line ending（LF vs CRLF 按源文件）/ BOM 全保留；输出到 `output_dir/<relative_path>`。
+- **OOM cap**：50 MB 文件大小上限 + TOCTOU `check_fstat_size` 防御（与其他用户面 loaders 一致）。
+- **CLI**（用户 Q4 选两者都接受）：`--engine unity` 与 `--engine unity_xunity` 都路由到 `UnityXUnityEngine`。`detect()` 返回 False（用户 Q2 选 manual-only，因为 XUAT 文件常被复制到任意位置手动管理，自动检测会过度触发）。
+- **测试覆盖**（16 测试）：detect manual-only / engine profile / 普通行解析 / 已翻译行不重发 / 注释和空行跳过 / `=` in original / UTF-8 BOM / malformed 跳过 / regex rule pending+filled / write_back round-trip / BOM preserve / regex pattern preserve / CRLF preserve / OOM cap / `_parse_lines` 全类型分类。
+- **数字增量**：tests_total 467 → 483 (+16); test_files 32 → 33 (+1: `test_unity_xunity_engine.py`); ci_steps 34 unchanged; assertion_points 593 → 609 (+16)。
+- **12 hard contracts 累积到 13**（CLAUDE.md 维护规则 +1）：Unity XUnity 引擎解析契约（partition 而非 split / `//` 注释 round-trip / 正则 pattern 不动只翻译 replacement）。
+- **Actionable backlog 3 → 2**（Godot + Kirikiri/TyranoBuilder）。
+
+**连续 15 轮 0 CRITICAL correctness 保持**（r35-r55）。
+
 ---
 
-## 累积技术资产（r1-r54 视角）
+## 累积技术资产（r1-r55 视角）
 
 ### 翻译能力
 - 三种 Ren'Py 翻译模式（direct / tl / retranslate） + screen 补充

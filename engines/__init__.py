@@ -13,6 +13,7 @@ from engines.engine_base import (
     RENPY_PROFILE,
     RPGMAKER_MV_PROFILE,
     CSV_PROFILE,
+    UNITY_XUNITY_PROFILE,
     ENGINE_PROFILES,
 )
 from engines.engine_detector import (
@@ -30,6 +31,7 @@ __all__ = [
     "RENPY_PROFILE",
     "RPGMAKER_MV_PROFILE",
     "CSV_PROFILE",
+    "UNITY_XUNITY_PROFILE",
     "ENGINE_PROFILES",
     "EngineType",
     "detect_engine_type",
