@@ -384,6 +384,110 @@ def execute_all_ci_test_steps(workflow_path: Path, repo_root: Path) -> None:
 
 
 # ---------------------------------------------------------------------------
+# Round 52 C1: HANDOFF push-status drift check.  Catches the r51 trap
+# where HANDOFF.md L29 declared "本地 main 含 r51 5 commits, 待用户手动
+# push origin" but the user had already pushed afterwards — the prose
+# went stale because no automation re-derived the unpushed-commit count.
+# Same drift class as the r45-r48 cycle that motivated the rest of this
+# tool, but on push state instead of test/file/CI counts.
+# ---------------------------------------------------------------------------
+
+
+# Match phrasings like:
+#   "本地 main 含 r51 5 commits, 待用户手动 push origin"
+#   "5 commits 待 push"
+#   "X commits ... 待 push 至 origin"
+# but NOT:
+#   "7 commits 已全部 push 至 origin/main" (no 待 between commits and push)
+#   "5 commits 已 push" (no 待)
+# The 80/30 length caps prevent runaway cross-paragraph matches.
+_PENDING_PUSH_RE = re.compile(r"(\d+)\s*commits?[\s\S]{0,80}?待[\s\S]{0,30}?push")
+
+
+def parse_handoff_pending_push(handoff_text: str) -> int | None:
+    """Extract the claimed unpushed-commit count from HANDOFF prose.
+
+    Returns the integer captured by ``_PENDING_PUSH_RE`` on first match,
+    or ``None`` if no "X commits ... 待 ... push" phrase is present.
+    The returned value is the *claim* — pair with
+    :func:`count_unpushed_commits` to detect drift.
+    """
+    m = _PENDING_PUSH_RE.search(handoff_text)
+    if m is None:
+        return None
+    try:
+        return int(m.group(1))
+    except (ValueError, IndexError):
+        return None
+
+
+def count_unpushed_commits(repo_root: Path) -> int | None:
+    """Return the real unpushed commit count via ``git rev-list``.
+
+    ``None`` on any failure (git not on PATH, no remote, detached HEAD,
+    fetch lag, parse error) — fail-open so this check never blocks a
+    commit in a CI environment that may not have origin access.
+
+    The check that consumes this value treats ``None`` as "skip the
+    drift comparison"; only ``0`` (with claim > 0) is treated as drift.
+    """
+    try:
+        proc = subprocess.run(
+            ["git", "rev-list", "origin/main..HEAD", "--count"],
+            cwd=str(repo_root),
+            capture_output=True,
+            text=True,
+            timeout=10,
+        )
+    except (FileNotFoundError, subprocess.TimeoutExpired, OSError):
+        return None
+    if proc.returncode != 0:
+        return None
+    try:
+        return int(proc.stdout.strip())
+    except (ValueError, AttributeError):
+        return None
+
+
+def check_handoff_push_status(handoff_path: Path, repo_root: Path) -> str | None:
+    """Return drift-issue string when HANDOFF claims pending push but
+    git shows zero unpushed commits (= already pushed but doc not synced).
+
+    Returns ``None`` (= no drift) when:
+      - HANDOFF.md is unreadable (setup error, surfaced elsewhere)
+      - HANDOFF makes no pending-push claim
+      - git unavailable (CI fail-open)
+      - real unpushed count matches the claim direction (claim > 0 and
+        real > 0 — both agree there's pending work)
+
+    Drift is asymmetric on purpose: only the "doc says pending, reality
+    says pushed" direction is flagged, because the inverse ("doc silent,
+    reality has unpushed commits") is the normal in-flight state during
+    development.  A future maintainer can extend this with a
+    ``min_count_threshold`` if needed.
+    """
+    try:
+        text = handoff_path.read_text(encoding="utf-8")
+    except OSError:
+        return None
+    claim = parse_handoff_pending_push(text)
+    if claim is None:
+        return None
+    real = count_unpushed_commits(repo_root)
+    if real is None:
+        return None
+    if claim > 0 and real == 0:
+        return (
+            f"HANDOFF.md claims {claim} commits pending push, but "
+            f"`git rev-list origin/main..HEAD --count` returns 0 "
+            f"(= already pushed). HANDOFF push-status section is stale — "
+            f"sync it after every push, or remove the pending-push prose "
+            f"once the push completes."
+        )
+    return None
+
+
+# ---------------------------------------------------------------------------
 # Reporter — formats a drift table for stdout.
 # ---------------------------------------------------------------------------
 
@@ -488,7 +592,14 @@ def main(argv: list[str] | None = None) -> int:
         print(f"\n[setup error] workflow parse failed: {e}", file=sys.stderr)
         return 1
 
-    # 7. (--full only) execute every CI test step as a runtime sanity
+    # 7. (round 52 C1) HANDOFF push-status drift — claim of pending
+    # commits while git shows zero unpushed = stale HANDOFF prose.
+    # Fail-open on git unavailable; see :func:`check_handoff_push_status`.
+    push_issue = check_handoff_push_status(handoff_path, repo_root)
+    if push_issue:
+        issues.append(push_issue)
+
+    # 8. (--full only) execute every CI test step as a runtime sanity
     # gate.  Does NOT contribute to the count — counts are static.
     if full:
         try:

@@ -1,10 +1,10 @@
 # HANDOFF — Round 51 末 → Round 52 起点
 
 <!-- VERIFIED-CLAIMS-START -->
-tests_total: 507
-test_files: 35
-ci_steps: 38
-assertion_points: 633
+tests_total: 514
+test_files: 36
+ci_steps: 39
+assertion_points: 640
 <!-- VERIFIED-CLAIMS-END -->
 
 > **上方 fenced 块是声明数字的唯一位置**。其他文档（`CLAUDE.md` / `.cursorrules` / `CHANGELOG.md` / `_archive/EVOLUTION.md` / `README.md` 等）只能引用这些数字，**不能重新声明**。`scripts/verify_docs_claims.py` 在 pre-commit hook 自动检查，drift fails the commit。
@@ -57,7 +57,7 @@ assertion_points: 633
 ### 🟢 短平快（无外部资源）
 
 1. **Round 52 起始审计** — 回溯验证 r51 4 Coverage fixes + 1 architectural decision 在 production code path 上 robust（特别注意 logger rename 是否在 r52 任何 GUI / pipeline 改动后仍 100% sites synced）
-2. **CHANGELOG 5 轮滚动维护** — 删 r47 detail，加 r52 detail（保持稳态；r51 已建立 r51.md 命名体例 + 5 轮窗口）
+2. **CHANGELOG 5 轮滚动维护**（**defer trigger**：r52 第一次主线 audit/feature commit 落盘后，与 docs sync 同 commit 执行；不要单独提前做，否则会截短真实历史） — 删 r47 detail / 加 r52 detail / rename `_archive/CHANGELOG_RECENT_r51.md` → `_r52.md` / sync `EVOLUTION.md` r52 概要 + `CHANGELOG.md` "最近 5 轮" 表（r51 已建立 r51.md 命名体例 + 5 轮窗口）
 3. **r51 audit-tail 检查**（如果 push 后用户反馈触发）— 同 r48 audit-2/3/4 chain 模式
 
 ### 🟠 需真实 API + 游戏（独立一轮）

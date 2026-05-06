@@ -197,6 +197,12 @@ jobs:
       # class of multi-round drift before merge.
       - name: Run verify_docs_claims unit tests
         run: python tests/test_verify_docs_claims.py
+      # Round 52 C1: HANDOFF push-status drift check.  Catches the r51
+      # trap where HANDOFF prose declared "X commits 待 push" but the
+      # user had pushed afterwards — same drift class as r45-r48 numbers
+      # but on push state instead of test/file/CI counts.
+      - name: Run verify_docs_claims push-status tests
+        run: python tests/test_verify_docs_claims_push_status.py
       - name: Run verify_docs_claims --full (cross-doc drift gate)
         run: python scripts/verify_docs_claims.py --full
 
