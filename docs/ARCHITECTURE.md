@@ -436,19 +436,25 @@ tests/
 
 ### 8.4 执行方式
 
+> **⚠️ meta-runner 是 smoke subset，不等于全量 `tests_total`**
+>
+> `tests/test_all.py` 仅聚合 6 个 focused suites（见 `tests/test_all.py` 顶部 docstring 列表）— 覆盖 core/translators/file_processor/glossary/state/runtime_hook 主路径，是 ~5s 的快通道。
+>
+> 全量 `tests_total`（见 `HANDOFF.md` `VERIFIED-CLAIMS` 块，~4× meta-runner）含 engine / 多语言 / RPA / rpyc / editor / pipeline / file_safety / 端到端集成等 ~29 个独立 suite，**只在 CI 或本地分别运行各独立 suite 时跑齐**。pre-commit hook 用 meta-runner（速度优先），不代表零回归 — 真实零回归看 CI 6 jobs 全绿。
+
 **本地快速验证**：
 ```bash
-python tests/test_all.py                    # meta-runner（~5s）
+python tests/test_all.py                    # meta-runner（6 focused suites，~5s smoke）
 python scripts/verify_docs_claims.py --fast # docs claim 同步性检查（~1s）
 ```
 
 **完整本地 sweep**（pre-commit 不跑，CI 跑）：
 ```bash
-# 各独立 suite 单独运行
+# 各独立 suite 单独运行（pwsh 一行：Get-ChildItem tests/test_*.py | % { python $_.FullName }）
 python tests/test_engines.py
 python tests/test_engines_rpgmaker.py
 python tests/test_csv_engine.py
-# ... 全部独立 suite
+# ... 其余独立 suite（共 35 个 test 文件）
 python scripts/verify_docs_claims.py --full # 实跑 CI 全部 Run-* steps
 ```
 

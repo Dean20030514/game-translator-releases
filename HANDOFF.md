@@ -26,7 +26,9 @@ assertion_points: 633
 
 ## 同步状态
 
-- 本地 `main` 含 r51 5 commits，**待用户手动 push** origin（按 NEVER push 规则；origin/main 当前是 r50 末 `943f749`）
+- r51 共 **7 commits**（5 主线 A1-A6 + C2 Coverage findings + docs sync + audit-tail）已全部 push 至 origin/main
+- 当前 `origin/main` = `4d10779`（r51 audit-tail：fix CI grep self-trip）
+- 本地 `main` 与 `origin/main` 同步（`git status` → "up to date"）
 - pre-commit hook 已激活（`git config core.hooksPath = .git-hooks`）
 - 4 件套自动 enforce：py_compile + 800 行 cap + meta-runner + `verify_docs_claims --fast`
 - Git remote: `https://github.com/Dean20030514/Multi-Engine-Game-Translator.git`（r51 A1 同步）
