@@ -279,32 +279,14 @@ def test_prompts():
     print("[OK] Prompts")
 
 def test_prompt_zh_unchanged():
-    """中文 prompt 零变更回归验证"""
+    """中文 prompt 零变更回归验证 (zh-only since round 52 C4)"""
     from core.prompts import build_system_prompt
     from core.glossary import Glossary
-    from core.lang_config import get_language_config
     g = Glossary()
-    # 不传 lang_config → 默认 zh
-    prompt_default = build_system_prompt('adult', g.to_prompt_text(), 'TestProject')
-    # 显式传 zh lang_config
-    prompt_zh = build_system_prompt('adult', g.to_prompt_text(), 'TestProject', lang_config=get_language_config('zh'))
+    prompt = build_system_prompt('adult', g.to_prompt_text(), 'TestProject')
     baseline = open('tests/zh_prompt_baseline.txt', 'r', encoding='utf-8').read()
-    assert prompt_default == baseline, "Default prompt changed!"
-    assert prompt_zh == baseline, "zh prompt changed!"
+    assert prompt == baseline, "zh prompt changed!"
     print("[OK] prompt_zh_unchanged")
-
-
-def test_prompt_ja_generic():
-    """日语 prompt 使用英文通用模板"""
-    from core.prompts import build_system_prompt
-    from core.lang_config import get_language_config
-    ja = get_language_config('ja')
-    prompt = build_system_prompt('adult', '', 'TestProject', lang_config=ja)
-    assert 'Japanese' in prompt or '日本語' in prompt
-    assert '"ja"' in prompt  # JSON 字段名
-    # 不应包含中文模板的内容
-    assert '你是一个专业的' not in prompt
-    print("[OK] prompt_ja_generic")
 
 
 def test_positive_int_validation():
@@ -372,182 +354,6 @@ def test_config_file_load():
     finally:
         cfg_path.unlink()
         os.rmdir(tmpdir)
-
-
-def test_lang_config_detect():
-    """语言检测函数准确性"""
-    from core.lang_config import detect_chinese_ratio, detect_japanese_ratio, detect_korean_ratio
-    # 中文
-    assert detect_chinese_ratio("你好世界") > 0.5
-    assert detect_chinese_ratio("Hello world") == 0.0
-    assert detect_chinese_ratio("") == 0.0
-    # 日文
-    assert detect_japanese_ratio("こんにちは世界") > 0.5
-    assert detect_japanese_ratio("Hello") == 0.0
-    # 韩文
-    assert detect_korean_ratio("안녕하세요") > 0.5
-    assert detect_korean_ratio("Hello") == 0.0
-    print("[OK] lang_config_detect")
-
-
-def test_lang_config_lookup():
-    """get_language_config 查找与回退"""
-    from core.lang_config import get_language_config
-    zh = get_language_config("zh")
-    assert zh.code == "zh" and zh.glossary_field == "zh"
-    ja = get_language_config("ja")
-    assert ja.code == "ja" and ja.glossary_field == "ja"
-    # 不存在的语言回退到 zh
-    fallback = get_language_config("xx-unknown")
-    assert fallback.code == "zh"
-    print("[OK] lang_config_lookup")
-
-
-def test_resolve_translation_field():
-    """兼容读取翻译字段"""
-    from core.lang_config import resolve_translation_field, get_language_config
-    zh_cfg = get_language_config("zh")
-    ja_cfg = get_language_config("ja")
-    # 精确匹配
-    assert resolve_translation_field({"zh": "你好"}, zh_cfg) == "你好"
-    assert resolve_translation_field({"ja": "こんにちは"}, ja_cfg) == "こんにちは"
-    # 别名匹配
-    assert resolve_translation_field({"chinese": "你好"}, zh_cfg) == "你好"
-    assert resolve_translation_field({"jp": "こんにちは"}, ja_cfg) == "こんにちは"
-    # 通用字段 fallback
-    assert resolve_translation_field({"translation": "你好"}, zh_cfg) == "你好"
-    # 无匹配
-    assert resolve_translation_field({"de": "Hallo"}, zh_cfg) is None
-    print("[OK] resolve_translation_field")
-
-
-def test_resolve_translation_field_alias_priority_over_generic():
-    """Round 46 Step 4 (G4): alias priority over generic fallback.
-
-    When a response item contains BOTH a language-specific alias
-    (e.g. ``"ja"`` / ``"jp"`` for Japanese) AND a generic field name
-    (e.g. ``"translation"`` / ``"target"``), ``resolve_translation_field``
-    must return the alias value.  This is the documented contract per
-    ``core/lang_config.py:138-143`` (alias loop runs before generic
-    loop) but was not previously asserted by tests — closed by the
-    round 45 audit's optional MEDIUM list.
-
-    Real-world risk: an AI returning a malformed response with a
-    placeholder ``"translation": "<placeholder>"`` next to a correct
-    ``"ja": "real-japanese-text"`` would silently use the placeholder
-    if the priority were reversed, causing every entry to be lost.
-    """
-    from core.lang_config import resolve_translation_field, get_language_config
-
-    ja_cfg = get_language_config("ja")
-    zh_cfg = get_language_config("zh")
-    zh_tw_cfg = get_language_config("zh-tw")
-
-    # Direct alias wins over generic.
-    assert resolve_translation_field(
-        {"translation": "FALLBACK", "ja": "REAL"}, ja_cfg
-    ) == "REAL", "alias 'ja' must beat generic 'translation'"
-
-    # Aliases also win over the other two generic spellings.
-    assert resolve_translation_field(
-        {"target": "FALLBACK", "ja": "REAL"}, ja_cfg
-    ) == "REAL", "alias 'ja' must beat generic 'target'"
-    assert resolve_translation_field(
-        {"trans": "FALLBACK", "ja": "REAL"}, ja_cfg
-    ) == "REAL", "alias 'ja' must beat generic 'trans'"
-
-    # Secondary alias 'jp' also wins over generic when 'ja' absent.
-    assert resolve_translation_field(
-        {"translation": "FALLBACK", "jp": "REAL"}, ja_cfg
-    ) == "REAL", "secondary alias 'jp' must beat generic 'translation'"
-
-    # zh aliases similarly: 'zh' / 'chinese' beat 'translation'.
-    assert resolve_translation_field(
-        {"translation": "FALLBACK", "zh": "REAL"}, zh_cfg
-    ) == "REAL", "alias 'zh' must beat generic 'translation'"
-    assert resolve_translation_field(
-        {"translation": "FALLBACK", "chinese": "REAL"}, zh_cfg
-    ) == "REAL", "alias 'chinese' must beat generic 'translation'"
-
-    # zh-tw is deliberately separated from bare 'zh' (r43 audit-tail
-    # contract — Simplified vs Traditional must not collide), so a
-    # zh-tw config with a 'zh' generic-shaped key should NOT fall
-    # through alias lookup; assert that the actual zh-tw aliases
-    # still win over generic.
-    assert resolve_translation_field(
-        {"translation": "FALLBACK", "zh-tw": "REAL"}, zh_tw_cfg
-    ) == "REAL", "alias 'zh-tw' must beat generic 'translation'"
-
-    # Edge case: alias key exists but value is empty string.  The
-    # implementation returns the empty string (truthy presence-check
-    # via ``in``); generic fallback is NOT consulted.  This documents
-    # the present behaviour so a future change is forced to be
-    # intentional.
-    assert resolve_translation_field(
-        {"translation": "FALLBACK", "ja": ""}, ja_cfg
-    ) == "", (
-        "alias key with empty string value still wins over generic — "
-        "this is the documented behaviour of in-based key lookup"
-    )
-
-    print("[OK] resolve_translation_field_alias_priority_over_generic")
-
-
-def test_resolve_translation_field_multi_alias_relative_priority():
-    """Round 46 Step 5 audit-fix (G4 coverage MEDIUM): when an item
-    contains multiple alias keys from the SAME lang_config (e.g. both
-    "ja" and "jp" for Japanese), the FIRST alias in
-    ``lang_config.field_aliases`` order must win, not the last.
-
-    The implementation in core/lang_config.py:138-140 iterates aliases
-    in declared order and returns at the first match; this test pins
-    that contract so a future re-ordering of the loop, switch to a
-    set/dict, or swap to "longest match wins" cannot silently change
-    which alias contributes.
-
-    Real-world scenario: an AI plugin that emits both "ja" (canonical)
-    and "jp" (legacy alias) keys with different content — typically
-    "ja" is the corrected translation and "jp" is the raw output.
-    Returning "jp" instead of "ja" would silently regress quality.
-
-    Round 45 audit-tail flagged this as a coverage gap; closed here.
-    """
-    from core.lang_config import resolve_translation_field, get_language_config
-
-    ja_cfg = get_language_config("ja")
-    zh_cfg = get_language_config("zh")
-    ko_cfg = get_language_config("ko")
-
-    # ja field_aliases = ["ja", "japanese", "jp"] — first wins.
-    assert resolve_translation_field(
-        {"ja": "WIN_JA", "japanese": "lose1", "jp": "lose2"}, ja_cfg
-    ) == "WIN_JA", "first alias 'ja' must win over 'japanese' + 'jp'"
-
-    assert resolve_translation_field(
-        {"japanese": "WIN_JAPANESE", "jp": "lose"}, ja_cfg
-    ) == "WIN_JAPANESE", (
-        "'japanese' (2nd alias) must win over 'jp' (3rd alias) when 'ja' absent"
-    )
-
-    assert resolve_translation_field(
-        {"jp": "WIN_JP"}, ja_cfg
-    ) == "WIN_JP", "'jp' (3rd alias) returned when only it is present"
-
-    # zh field_aliases = ["zh", "chinese", "cn"] — same contract.
-    assert resolve_translation_field(
-        {"zh": "WIN_ZH", "chinese": "lose1", "cn": "lose2"}, zh_cfg
-    ) == "WIN_ZH", "first alias 'zh' must win over 'chinese' + 'cn'"
-
-    assert resolve_translation_field(
-        {"chinese": "WIN_CHINESE", "cn": "lose"}, zh_cfg
-    ) == "WIN_CHINESE", "'chinese' (2nd) must win over 'cn' (3rd)"
-
-    # ko field_aliases = ["ko", "korean", "kr"] — same contract.
-    assert resolve_translation_field(
-        {"korean": "WIN_KOREAN", "kr": "lose"}, ko_cfg
-    ) == "WIN_KOREAN", "ko: 'korean' (2nd) must win over 'kr' (3rd)"
-
-    print("[OK] resolve_translation_field_multi_alias_relative_priority")
 
 
 def test_config_validation():
@@ -692,18 +498,10 @@ def run_all() -> int:
         test_locked_terms_special_chars,
         test_prompts,
         test_prompt_zh_unchanged,
-        test_prompt_ja_generic,
         test_positive_int_validation,
         test_config_load_and_defaults,
         test_config_cli_override,
         test_config_file_load,
-        test_lang_config_detect,
-        test_lang_config_lookup,
-        test_resolve_translation_field,
-        # Round 46 Step 4 (G4): alias priority over generic fallback
-        test_resolve_translation_field_alias_priority_over_generic,
-        # Round 46 Step 5 audit-fix (G4): multi-alias relative priority within field_aliases
-        test_resolve_translation_field_multi_alias_relative_priority,
         test_config_validation,
         # Round 38 M2: 50 MB size-cap gates on user-supplied JSON paths
         test_config_file_rejects_oversized,

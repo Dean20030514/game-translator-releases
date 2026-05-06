@@ -126,12 +126,8 @@ def run_pipeline(args: argparse.Namespace) -> None:
           f"{len(glossary.memory)} 翻译记忆")
 
     # 初始化进度追踪
-    # Round 35 C1: thread target_lang so multi-language runs in the same
-    # output_dir don't stomp each other's chunk state (progress key becomes
-    # ``"<lang>:<rel_path>"``).  Legacy single-lang progress files still
-    # resume correctly via the fallback read path.
-    _progress_lang = getattr(args, "target_lang", "zh") or "zh"
-    progress = ProgressTracker(output_dir / "progress.json", language=_progress_lang)
+    # Round 52 C4 BREAKING: language= / default_language= kwargs retired.
+    progress = ProgressTracker(output_dir / "progress.json")
     if not args.resume and progress.data.get("completed_files"):
         logger.info(f"[INFO] 发现旧进度（已完成 {len(progress.data['completed_files'])} 个文件）")
         logger.info("[INFO] 清除旧进度，从头开始（如需续传请加 --resume）")
@@ -139,11 +135,8 @@ def run_pipeline(args: argparse.Namespace) -> None:
         progress.save()
 
     # 初始化 translation DB（用于增量与重翻统计）
-    # Round 34: thread target_lang so v1-era DB migration + per-entry
-    # language stamping stay consistent with the current run's output.
     db_path = output_dir / "translation_db.json"
-    _db_lang = getattr(args, "target_lang", "zh") or "zh"
-    translation_db = TranslationDB(db_path, default_language=_db_lang)
+    translation_db = TranslationDB(db_path)
     translation_db.load()
     # 以时间戳标记本次运行；足够区分不同批次
     run_id = time.strftime("%Y-%m-%dT%H:%M:%S", time.gmtime())

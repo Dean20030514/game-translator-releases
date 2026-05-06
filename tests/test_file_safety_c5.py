@@ -76,36 +76,6 @@ def _patch_fstat_at_cap(cap_byte: int):
         yield
 
 
-def test_merge_v2_load_envelope_rejects_toctou_growth_attack():
-    """C5 site 1/11: tools/merge_translations_v2.py::_load_v2_envelope."""
-    import json as _json
-    import tempfile
-    from tools.merge_translations_v2 import (
-        _load_v2_envelope, MergeError, _MAX_V2_ENVELOPE_SIZE,
-    )
-
-    with tempfile.TemporaryDirectory() as td:
-        p = Path(td) / "v2.json"
-        p.write_text(_json.dumps({
-            "_schema_version": 2,
-            "default_lang": "zh",
-            "translations": {},
-        }), encoding="utf-8")
-
-        with _patch_fstat_oversize(_MAX_V2_ENVELOPE_SIZE):
-            try:
-                _load_v2_envelope(p)
-                raised = False
-            except MergeError as e:
-                raised = True
-                msg = str(e)
-
-        assert raised, "TOCTOU > cap must raise MergeError"
-        assert "TOCTOU" in msg, (
-            f"MergeError message must mention TOCTOU; got {msg!r}"
-        )
-    print("[OK] merge_v2_load_envelope_rejects_toctou_growth_attack")
-
 
 def test_translation_editor_extract_from_db_rejects_toctou_growth_attack():
     """C5 site 2/11: tools/translation_editor.py::_extract_from_db."""
@@ -529,7 +499,6 @@ def test_stages_full_report_uses_check_fstat_size_pattern():
 
 ALL_TESTS = [
     # C5 site 1: tools/merge_translations_v2.py
-    test_merge_v2_load_envelope_rejects_toctou_growth_attack,
     # C5 sites 2-4: tools/translation_editor.py (3 callers)
     test_translation_editor_extract_from_db_rejects_toctou_growth_attack,
     test_translation_editor_import_edits_rejects_toctou_growth_attack,

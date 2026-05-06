@@ -6,7 +6,9 @@
 
 ## 简体中文
 
-一个**纯 Python**（零第三方依赖，Python ≥ 3.9）的游戏自动汉化工具，支持 **Ren'Py / RPG Maker MV-MZ / CSV-JSONL**，通过 LLM API 翻译为简体中文（也支持繁体中文 / 日语 / 韩语）。
+一个**纯 Python**（零第三方依赖，Python ≥ 3.9）的游戏自动汉化工具，支持 **Ren'Py / RPG Maker MV-MZ / CSV-JSONL**，通过 LLM API 翻译为简体中文。
+
+> **Round 52 C4 BREAKING**：r35-r48 多目标语言 contract（zh / zh-tw / ja / ko）已完全删除，目标语言固定为 **zh 简体中文**。源语言不限 — LLM 自动识别。已有 v2 schema 翻译 DB 用 `python scripts/migrate_db_v2_to_v1.py output/translation_db.json` 迁移到 v1。
 
 ### 特性
 
@@ -14,10 +16,10 @@
 - **多引擎自动检测**：Ren'Py / RPG Maker MV-MZ / CSV-JSONL，`--engine auto`
 - **五大 LLM**：xAI / OpenAI / DeepSeek / Claude / Gemini + 自定义引擎插件（**round 52 起强制 subprocess 沙箱**）
 - **完整质量保障**：占位符保护 + ResponseChecker + 50+ 项 validate_translation
-- **多语言端到端**：zh / zh-tw / ja / ko，5 层 code-level contract
+- **目标语言**：zh 简体中文（round 52 C4 BREAKING：r35-r48 多目标语言 contract 已 retire）
 - **GUI + CLI + 一键流水线**：Tkinter 图形界面 / 中文交互菜单 / 四阶段自动流水线
 - **预处理工具链**：RPA 解包 + rpyc 双层反编译 + lint 自动修复 + Hook 模板
-- **翻译后工具链**：RPA 打包（Mod 分发）+ HTML 交互式校对 + 多语言 v2 envelope 编辑
+- **翻译后工具链**：RPA 打包（Mod 分发）+ HTML 交互式校对
 
 ### 快速开始
 
@@ -100,7 +102,6 @@ python main.py --engine jsonl --game-dir texts.jsonl --provider xai --api-key KE
 | `--workers` | 1 | chunk 并发线程数 |
 | `--file-workers` | 1 | 文件级并行翻译数 |
 | `--rpm` / `--rps` | 60 / 5 | 速率限制 |
-| `--target-lang` | `zh` | 目标语言；逗号分隔多语言（`zh,ja,zh-tw`）触发外层语言循环 |
 | `--engine` | `auto` | auto / renpy / rpgmaker / csv / jsonl |
 | `--config` | 自动 | 默认查找 `<game-dir>/renpy_translate.json` |
 
@@ -121,7 +122,9 @@ python main.py --engine jsonl --game-dir texts.jsonl --provider xai --api-key KE
 
 ## English
 
-A **pure-Python** (zero third-party dependencies, Python ≥ 3.9) automatic game translation tool. Supports **Ren'Py / RPG Maker MV-MZ / CSV-JSONL**, translating to Simplified Chinese via LLM APIs (also Traditional Chinese / Japanese / Korean).
+A **pure-Python** (zero third-party dependencies, Python ≥ 3.9) automatic game translation tool. Supports **Ren'Py / RPG Maker MV-MZ / CSV-JSONL**, translating to Simplified Chinese via LLM APIs.
+
+> **Round 52 C4 BREAKING**: multi-target-language contract (zh / zh-tw / ja / ko) retired; output is fixed to **Simplified Chinese (zh)**.  Source language is auto-detected by the LLM.  Existing v2-schema translation DBs need migration via `python scripts/migrate_db_v2_to_v1.py output/translation_db.json`.
 
 ### Features
 
@@ -129,7 +132,7 @@ A **pure-Python** (zero third-party dependencies, Python ≥ 3.9) automatic game
 - **Multi-engine auto-detection**: Ren'Py / RPG Maker MV-MZ / CSV-JSONL, `--engine auto`
 - **Five LLM providers**: xAI / OpenAI / DeepSeek / Claude / Gemini + custom plugin (**unconditional subprocess sandbox** since round 52)
 - **Full quality chain**: placeholder protection + ResponseChecker + 50+ validate_translation rules
-- **End-to-end multilingual**: zh / zh-tw / ja / ko with 5-layer code-level contracts
+- **Target language**: Simplified Chinese (zh) — multi-target contract retired in r52 C4
 - **GUI + CLI + one-click pipeline**: Tkinter GUI / interactive CLI menu / 4-stage auto pipeline
 - **Pre-processing toolkit**: RPA unpacker + 2-tier rpyc decompiler + lint auto-fixer + injection hook templates
 - **Post-processing toolkit**: RPA packer (mod distribution) + HTML interactive review + multi-language v2 envelope editor
@@ -214,7 +217,6 @@ python main.py --engine jsonl --game-dir texts.jsonl --provider xai --api-key KE
 | `--workers` | 1 | Per-file chunk concurrency |
 | `--file-workers` | 1 | File-level parallel translation |
 | `--rpm` / `--rps` | 60 / 5 | Rate limits |
-| `--target-lang` | `zh` | Target language; comma-separated (`zh,ja,zh-tw`) triggers outer language loop |
 | `--engine` | `auto` | auto / renpy / rpgmaker / csv / jsonl |
 | `--config` | auto | Defaults to `<game-dir>/renpy_translate.json` |
 

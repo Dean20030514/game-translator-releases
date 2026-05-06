@@ -176,7 +176,6 @@ def retranslate_file(
     stage: str = "retranslate",
     provider: str = "",
     model: str = "",
-    lang_config: object = None,  # Round 39: per-language prompt + response field
 ) -> tuple[int, list[str]]:
     """补翻单个文件中残留的英文对话行。
 
@@ -204,12 +203,9 @@ def retranslate_file(
     indices = [idx for idx, _ in untranslated]
     chunks = build_retranslate_chunks(all_lines, indices, context_lines, max_per_chunk)
 
-    # Round 39: pass lang_config through so non-zh targets get the
-    # generic English template.  None / zh / zh-tw → existing Chinese
-    # prompt byte-identical to r38.
+    # Round 52 C4 BREAKING: lang_config retired (zh-only).
     system_prompt = build_retranslate_system_prompt(
         glossary_text=glossary.to_prompt_text(),
-        lang_config=lang_config,
     )
 
     all_translations: list[dict] = []
@@ -286,15 +282,9 @@ def retranslate_file(
         for item in unique:
             line_no = int(item.get("line") or 0)
             original = item.get("original", "") or ""
-            # Round 39: read per-language translation field via
-            # resolve_translation_field alias chain when lang_config is
-            # present; fall back to literal "zh" for byte-identical r38
-            # behaviour when called without lang_config (legacy callers).
-            if lang_config is not None:
-                from core.lang_config import resolve_translation_field as _resolve_field
-                zh = _resolve_field(item, lang_config) or ""
-            else:
-                zh = item.get("zh", "") or ""
+            # Round 52 C4 BREAKING: lang_config / resolve_translation_field
+            # retired.  Hard-coded ``"zh"`` field read.
+            zh = item.get("zh", "") or ""
             if not line_no or not original:
                 continue
             db_entries.append({
@@ -378,20 +368,14 @@ def run_retranslate_pipeline(args: argparse.Namespace) -> None:
             glossary.load_dict(dict_path)
 
     # 补翻使用独立进度文件，不干扰主翻译进度
-    # Round 35 C1: language namespace on progress keys (retranslate prompt
-    # is Chinese-only so in practice this will always be "zh", but threading
-    # the arg keeps behaviour symmetric with direct.py and lets future
-    # per-language retranslate prompts plug in without more plumbing).
-    _progress_lang = getattr(args, "target_lang", "zh") or "zh"
-    progress = ProgressTracker(output_dir / "retranslate_progress.json", language=_progress_lang)
+    # Round 52 C4 BREAKING: language= / default_language= kwargs retired.
+    progress = ProgressTracker(output_dir / "retranslate_progress.json")
     if not args.resume and progress.data.get("completed_files"):
         progress.data = {"completed_files": [], "completed_chunks": {}, "stats": {}}
         progress.save()
 
     db_path = output_dir / "translation_db.json"
-    # Round 34: thread target_lang (v1→v2 backfill + new-entry stamp).
-    _db_lang = getattr(args, "target_lang", "zh") or "zh"
-    translation_db = TranslationDB(db_path, default_language=_db_lang)
+    translation_db = TranslationDB(db_path)
     translation_db.load()
     run_id = time.strftime("%Y-%m-%dT%H:%M:%S", time.gmtime())
 
@@ -447,9 +431,6 @@ def run_retranslate_pipeline(args: argparse.Namespace) -> None:
                 translation_db=translation_db,
                 run_id=run_id, stage="retranslate",
                 provider=config.provider, model=config.model,
-                # Round 39: pass lang_config so per-language prompt +
-                # response-field reader activate for non-zh targets.
-                lang_config=getattr(args, "lang_config", None),
             )
             total_translated += count
             total_warnings.extend(warnings)

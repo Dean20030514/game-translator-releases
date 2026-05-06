@@ -15,16 +15,11 @@ Incremental writes: a ``_dirty`` flag short-circuits ``save()`` when nothing
 has changed since the last successful persist (previously every pipeline
 report path re-serialised the entire DB regardless of changes).
 
-Round 34 schema v2: entries gain an optional ``language`` field and the
-``_index`` key becomes a 4-tuple ``(file, line, original, language_or_None)``.
-This unblocks first-class multi-language translation pipelines where one
-TranslationDB may legitimately contain ``Hello → 你好`` and ``Hello → こんにちは``
-as distinct entries keyed by language.  Construction with
-``default_language=args.target_lang`` auto-fills the language on upsert for
-callers that don't supply it explicitly; loading a v1 file under a caller
-that passed ``default_language`` performs a forced backfill so round-33 DBs
-adopt the caller's language on first use (prevents "(file,line,orig,None)"
-and "(file,line,orig,zh)" double-bucket drift).
+Round 52 C4 BREAKING: schema v2 (round 34 multi-language ``language`` field
++ 4-tuple ``(file, line, original, language)`` index) retired.  Reverted to
+v1 flat schema: 3-tuple ``(file, line, original)`` index, no per-entry
+``language`` field.  Existing v2 DBs must be migrated via
+``scripts/migrate_db_v2_to_v1.py``.
 """
 
 from __future__ import annotations
@@ -33,7 +28,7 @@ import json
 import os
 import threading
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Tuple
 
 from core.file_safety import check_fstat_size
 
@@ -41,14 +36,14 @@ from core.file_safety import check_fstat_size
 class TranslationDB:
     """Lightweight JSON-based translation metadata store.
 
-    Entries are de-duplicated by (file, line, original, language).  Later
-    writes override earlier ones.  Thread-safe: callers may invoke
-    ``upsert_entry`` / ``save`` from multiple threads concurrently.
+    Round 52 C4 BREAKING: entries de-duplicated by (file, line, original).
+    Pre-r52 added a ``language`` field for multi-language buckets; that
+    is retired now that only zh is supported.  Thread-safe.
     """
 
-    #: On-disk schema version written by ``save()``.  Bumped to 2 in round 34
-    #: when per-entry ``language`` fields + 4-tuple index keys were added.
-    SCHEMA_VERSION: int = 2
+    #: On-disk schema version written by ``save()``.  Round 52 C4: reverted
+    #: to v1 (no language field on entries).
+    SCHEMA_VERSION: int = 1
 
     #: Round 37 M2: reject translation_db.json files above this size to bound
     #: memory usage.  A 50 MB DB would hold tens of thousands of entries even
@@ -57,54 +52,33 @@ class TranslationDB:
     #: malformed or an attacker-crafted artefact worth rejecting up front.
     _MAX_DB_FILE_SIZE: int = 50 * 1024 * 1024
 
-    def __init__(
-        self,
-        path: Path,
-        *,
-        default_language: Optional[str] = None,
-    ):
+    def __init__(self, path: Path):
         """Construct a TranslationDB backed by ``path``.
+
+        Round 52 C4 BREAKING: ``default_language`` kwarg retired.  Pre-r52
+        the kwarg drove v1→v2 schema upgrade on load; v2 schema is gone
+        so this knob is no longer meaningful.
 
         Args:
             path: JSON file path.  Created on first ``save()``.
-            default_language: Round 34 opt-in.  When set, every entry upserted
-                without an explicit ``language`` field gets it auto-filled from
-                this value.  Also triggers the v1→v2 forced backfill on
-                ``load()`` — any entry read from an older DB file without a
-                ``language`` field adopts this value.  Leave ``None`` for
-                round-33 byte-identical behaviour (entries with no language
-                stay in the ``None`` bucket, which is a separate index slot
-                from any named-language bucket).
         """
         self.path = path
         self.version: int = 1  # loaded-version; save() always writes SCHEMA_VERSION
-        self.default_language: Optional[str] = default_language
         self.entries: List[Dict[str, Any]] = []
-        # key: (file, line, original, language_or_None) -> index in entries
-        self._index: Dict[Tuple[str, int, str, Optional[str]], int] = {}
+        # Round 52 C4 BREAKING: 3-tuple key (file, line, original); v2's
+        # 4-tuple language-aware key retired.
+        self._index: Dict[Tuple[str, int, str], int] = {}
         # Re-entrant so ``add_entries`` may call ``upsert_entry`` without
         # deadlocking on the same thread.
         self._lock: threading.RLock = threading.RLock()
         # Skip no-op persistence when nothing has changed since last save/load.
         self._dirty: bool = False
 
-    @staticmethod
-    def _entry_language(entry: Dict[str, Any]) -> Optional[str]:
-        """Extract the normalised language field from an entry dict.
-
-        Returns None when the field is absent or is set to a non-string /
-        empty value, so the index's None bucket groups every legacy entry
-        that pre-dates the round-34 schema.
-        """
-        lang = entry.get("language")
-        if isinstance(lang, str) and lang:
-            return lang
-        return None
-
     def _rebuild_index(self) -> None:
-        """Rebuild the (file, line, original, language) -> position index.
+        """Rebuild the (file, line, original) -> position index.
 
-        Caller must already hold ``self._lock``.
+        Caller must already hold ``self._lock``.  Round 52 C4 BREAKING:
+        language field removed from key tuple.
         """
         self._index.clear()
         for idx, entry in enumerate(self.entries):
@@ -118,8 +92,7 @@ class TranslationDB:
             # Keep entries with line == 0 (generic pipeline uses 0 as a
             # placeholder when the source format has no meaningful line info).
             if file and line is not None and original:
-                language = self._entry_language(entry)
-                self._index[(file, line, original, language)] = idx
+                self._index[(file, line, original)] = idx
 
     def load(self) -> None:
         """Load existing DB from disk if present.
@@ -190,29 +163,12 @@ class TranslationDB:
                     self.entries = []
             else:
                 self.entries = []
-            # Round 34 / Round 37 M1: forced backfill for any entry lacking
-            # a ``language`` field when caller constructed with
-            # ``default_language``.  Originally gated on ``version <
-            # SCHEMA_VERSION`` (v1 migration path), but a hand-edited v2 DB
-            # or a third-party tool can produce a v2 file whose entries
-            # still lack language fields — those must also backfill or
-            # they'd stay in the None bucket permanently while subsequent
-            # ``upsert_entry`` auto-fills fresh writes to the default
-            # bucket, causing ``(file,line,orig,None)`` vs
-            # ``(file,line,orig,zh)`` duplicate-bucket drift.  Callers
-            # that want to preserve None-bucket behaviour should
-            # construct without ``default_language``.
-            if self.default_language is not None:
-                any_backfilled = False
-                for entry in self.entries:
-                    if isinstance(entry, dict) and "language" not in entry:
-                        entry["language"] = self.default_language
-                        any_backfilled = True
-                if any_backfilled:
-                    # Mark dirty so the next save rewrites at SCHEMA_VERSION
-                    # with the backfilled language values persisted — one-
-                    # way upgrade.
-                    self._dirty = True
+            # Round 52 C4 BREAKING: v1→v2 forced backfill retired.
+            # Existing v2 entries' ``language`` field is now ignored on
+            # read; if v2 file is loaded, the `language` field stays in
+            # the dict (forward-compat read tolerance) but isn't used in
+            # the 3-tuple index.  Use scripts/migrate_db_v2_to_v1.py to
+            # strip ``language`` fields cleanly.
             self._rebuild_index()
             if not self._dirty:
                 self._dirty = False
@@ -253,16 +209,12 @@ class TranslationDB:
 
     def upsert_entry(self, entry: Dict[str, Any]) -> None:
         """Insert or update a single entry, de-duplicated by
-        ``(file, line, original, language)``.
+        ``(file, line, original)``.
 
         Accepts ``line == 0`` (generic pipeline uses 0 as a placeholder).
         Silently drops entries missing file/original or with a non-integer line.
 
-        Round 34: if the entry lacks a ``language`` field and this DB was
-        constructed with ``default_language``, the entry is shallow-copied
-        and stamped with the default language before storage.  Entries that
-        already carry a language pass through unchanged (caller-supplied
-        language always wins over the DB-level default).
+        Round 52 C4 BREAKING: language field auto-fill / dedup retired.
         """
         file = str(entry.get("file", ""))
         raw_line = entry.get("line", 0)
@@ -273,13 +225,7 @@ class TranslationDB:
         original = str(entry.get("original", ""))
         if not file or line is None or not original:
             return
-        # Round 34: auto-fill language from the DB's default if the caller
-        # didn't supply one.  Shallow-copy so we never mutate caller's dict.
-        if self.default_language is not None and "language" not in entry:
-            entry = dict(entry)
-            entry["language"] = self.default_language
-        language = self._entry_language(entry)
-        key = (file, line, original, language)
+        key = (file, line, original)
         with self._lock:
             idx = self._index.get(key)
             if idx is not None:
@@ -295,40 +241,22 @@ class TranslationDB:
             for e in entries:
                 self.upsert_entry(e)
 
-    def has_entry(
-        self,
-        file: str,
-        line: int,
-        original: str,
-        language: Optional[str] = None,
-    ) -> bool:
-        """Check if an entry with given
-        ``(file, line, original, language)`` key exists.
+    def has_entry(self, file: str, line: int, original: str) -> bool:
+        """Check if an entry with given ``(file, line, original)`` key exists.
 
-        Round 34: ``language`` defaults to ``None`` which is the **exact
-        match** for the None bucket (not a wildcard).  Callers that want
-        "match any language" must iterate ``entries`` directly or query once
-        per language.  Legacy callers that only supply 3 positional args
-        keep their round-33 behaviour (matched against the None bucket,
-        which is where pre-round-34 entries land).
+        Round 52 C4 BREAKING: ``language`` kwarg retired.
         """
         with self._lock:
-            return (file, line, original, language) in self._index
+            return (file, line, original) in self._index
 
     def filter_by_status(
         self,
         statuses: Optional[List[str]] = None,
         files: Optional[List[str]] = None,
-        language: Optional[str] = None,
     ) -> List[Dict[str, Any]]:
-        """Return entries filtered by status, files, and/or language.
+        """Return entries filtered by status and/or files.
 
-        Round 34: ``language`` adds a post-filter.  ``None`` (default) means
-        "no language filter" — every entry passes; a non-None string keeps
-        only entries whose ``language`` field equals that exact value.
-
-        This is a library-level API for future CLI/GUI tools. It is not
-        wired to CLI yet.
+        Round 52 C4 BREAKING: ``language`` filter kwarg retired.
         """
         if statuses is not None:
             allowed_status = {s.lower() for s in statuses}
@@ -351,9 +279,6 @@ class TranslationDB:
             if allowed_files is not None:
                 f = str(e.get("file", ""))
                 if f not in allowed_files:
-                    continue
-            if language is not None:
-                if self._entry_language(e) != language:
                     continue
             result.append(e)
         return result

@@ -49,7 +49,6 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--dict", nargs="*", default=[], metavar="PATH", help="词典文件（透传 main.py）")
     parser.add_argument("--exclude", nargs="*", default=[], metavar="PATTERN", help="排除文件模式（透传 main.py）")
     parser.add_argument("--copy-assets", action="store_true", help="复制非 .rpy 资源（透传 main.py）")
-    parser.add_argument("--target-lang", default="zh", help="目标语言（透传 main.py）")
     parser.add_argument("--package-name", default="CN_patch_game", help="输出 zip 包名（不含扩展名）")
     parser.add_argument("--patch-font", action="store_true", default=False,
                         help="打包前启用自动字体补丁：复制字体到 game/ 并改写 gui.*_font")
@@ -70,6 +69,8 @@ def parse_args() -> argparse.Namespace:
 
 def main() -> None:
     args = parse_args()
+    # Round 52 C4 BREAKING: --target-lang retired; force zh.
+    args.target_lang = "zh"
     t0 = time.time()
 
     # API Key 解析优先级（高 → 低）：
@@ -147,7 +148,7 @@ def main() -> None:
             "dict": args.dict,
             "exclude": args.exclude,
             "copy_assets": args.copy_assets,
-            "target_lang": args.target_lang,
+            "target_lang": "zh",  # Round 52 C4: hardcoded zh
             "tl_mode": use_tl_mode,
             "tl_lang": tl_lang if use_tl_mode else None,
         },

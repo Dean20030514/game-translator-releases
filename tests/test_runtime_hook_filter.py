@@ -25,60 +25,6 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 
-def test_build_translations_map_filters_by_language():
-    """Round 34 C1: ``entry_language_filter`` keeps matching + None-bucket
-    entries, drops mismatched language strings.  Prevents multi-language
-    DB bucket leakage in v2 emit.
-    """
-    from core.runtime_hook_emitter import build_translations_map
-
-    entries = [
-        {"file": "a.rpy", "line": 1, "original": "Hello", "translation": "你好",
-         "status": "ok", "language": "zh"},
-        {"file": "a.rpy", "line": 1, "original": "Hello", "translation": "こんにちは",
-         "status": "ok", "language": "ja"},
-        # Legacy None bucket — kept universally so old v1 DB files still emit.
-        {"file": "b.rpy", "line": 1, "original": "World", "translation": "世界",
-         "status": "ok"},
-        {"file": "c.rpy", "line": 1, "original": "Goodbye", "translation": "さようなら",
-         "status": "ok", "language": "ja"},
-    ]
-    assert build_translations_map(entries, entry_language_filter="zh") == {
-        "Hello": "你好", "World": "世界",
-    }
-    assert build_translations_map(entries, entry_language_filter="ja") == {
-        "Hello": "こんにちは", "World": "世界", "Goodbye": "さようなら",
-    }
-    v2_zh = build_translations_map(
-        entries, schema_version=2, target_lang="zh", entry_language_filter="zh",
-    )
-    assert v2_zh["translations"] == {"Hello": {"zh": "你好"}, "World": {"zh": "世界"}}
-    print("[OK] build_translations_map_filters_by_language")
-
-
-def test_build_translations_map_filter_none_means_no_filter():
-    """Round 34 C1: ``entry_language_filter=None`` (default) must preserve
-    round-33 behaviour byte-identically.  Regression guard so a future
-    change doesn't silently tighten the opt-in default.
-    """
-    from core.runtime_hook_emitter import build_translations_map
-
-    entries = [
-        {"file": "a.rpy", "line": 1, "original": "Hello", "translation": "你好",
-         "status": "ok", "language": "zh"},
-        {"file": "a.rpy", "line": 1, "original": "Hello", "translation": "こんにちは",
-         "status": "ok", "language": "ja"},
-        {"file": "b.rpy", "line": 1, "original": "World", "translation": "世界",
-         "status": "ok"},
-    ]
-    expected = {"Hello": "你好", "World": "世界"}  # first-wins collapse
-    assert build_translations_map(entries) == expected
-    assert build_translations_map(entries, entry_language_filter=None) == expected
-    # Round-33 legacy shape (no language field at all) still works.
-    legacy = [{"file": "a.rpy", "line": 1, "original": "Hello",
-               "translation": "你好", "status": "ok"}]
-    assert build_translations_map(legacy) == {"Hello": "你好"}
-    print("[OK] build_translations_map_filter_none_means_no_filter")
 
 
 def test_sanitise_overrides_rejects_non_finite_floats():
@@ -153,44 +99,6 @@ def test_load_font_config_rejects_oversized_file():
         )
     print("[OK] test_load_font_config_rejects_oversized_file")
 
-
-def test_apply_v2_edits_rejects_oversized_envelope():
-    """Round 37 M2: ``_apply_v2_edits`` skips edits whose ``v2_path``
-    points to a file above the 50 MB cap.  Even after the M4 path
-    whitelist (CWD-rooted only) lands, this cap still guards memory
-    against a legitimate CWD-rooted file that happens to be huge /
-    malformed.
-    """
-    import shutil
-    import tempfile
-    from pathlib import Path
-    from tools.translation_editor import _apply_v2_edits
-
-    # Create the sparse file UNDER CWD so the M4 path whitelist (round
-    # 37 later commit) still accepts it — this test passes before M4
-    # and after M4 lands.
-    test_dir = Path(tempfile.mkdtemp(prefix="_m2_apply_", dir=str(Path.cwd())))
-    try:
-        p = test_dir / "big.json"
-        with open(p, "wb") as f:
-            f.seek(51 * 1024 * 1024 - 1)
-            f.write(b"\0")
-        edits = [{
-            "v2_path": str(p),
-            "v2_lang": "zh",
-            "original": "Hi",
-            "new_translation": "\u55e8",
-        }]
-        result = _apply_v2_edits(edits, create_backup=False)
-        assert result["applied"] == 0, (
-            "M2: oversized envelope must not apply edits"
-        )
-        assert result["skipped"] == 1, (
-            "M2: oversized envelope must skip all edits"
-        )
-    finally:
-        shutil.rmtree(test_dir, ignore_errors=True)
-    print("[OK] test_apply_v2_edits_rejects_oversized_envelope")
 
 
 def test_review_generator_rejects_oversized_db():
@@ -280,13 +188,10 @@ def test_gate_rejects_oversized_glossary():
 def run_all() -> int:
     """Run every test in this module; return test count."""
     tests = [
-        test_build_translations_map_filters_by_language,
-        test_build_translations_map_filter_none_means_no_filter,
         # Round 36 H2: non-finite float rejection in _sanitise_overrides
         test_sanitise_overrides_rejects_non_finite_floats,
         # Round 37 M2: JSON loader 50 MB caps (2 of 4 sites)
         test_load_font_config_rejects_oversized_file,
-        test_apply_v2_edits_rejects_oversized_envelope,
         # Round 39 M2 phase-2: 3 more user-facing JSON loaders
         test_review_generator_rejects_oversized_db,
         test_analyze_writeback_failures_rejects_oversized_db,

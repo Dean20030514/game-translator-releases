@@ -78,27 +78,6 @@ def _ratio_float(value: str) -> float:
     return fv
 
 
-def _parse_target_langs(raw: str) -> list[str]:
-    """Round 35 Subtask 1: parse ``--target-lang`` into a list.
-
-    ``"zh"``        → ``["zh"]``             (single lang, round-34 behaviour)
-    ``"zh-tw"``     → ``["zh-tw"]``          (BCP-47 hyphen preserved)
-    ``"zh,ja"``     → ``["zh", "ja"]``       (comma-separated multi-lang)
-    ``"zh, ja ,ja"`` → ``["zh", "ja"]``      (whitespace stripped, dupes kept
-                                              as-is for operator visibility)
-    ``""`` / ``None`` / ``",,,"`` → ``["zh"]`` (safe default fallback)
-
-    The outer translation loop in :func:`main` iterates over this list,
-    swapping ``args.target_lang`` + refreshing ``args.lang_config`` each
-    time, so downstream code that reads the singular form stays
-    unchanged from round 34.
-    """
-    if not raw:
-        return ["zh"]
-    langs = [lang.strip() for lang in str(raw).split(",") if lang.strip()]
-    return langs or ["zh"]
-
-
 # ============================================================
 # CLI 入口
 # ============================================================
@@ -119,12 +98,9 @@ def main():
     parser.add_argument("--emit-runtime-hook", action="store_true",
                         help="在输出目录额外生成 translations.json + "
                              "zz_tl_inject_hook.rpy，供运行时注入模式使用（opt-in）。"
-                             "默认关闭，静态 .rpy 改写流程不受影响")
-    parser.add_argument("--runtime-hook-schema", choices=["v1", "v2"], default="v1",
-                        help="translations.json schema 版本（仅在 --emit-runtime-hook 开启时生效）："
-                             "v1=flat {en: zh}（默认，向后兼容）；"
-                             "v2=nested {en: {zh, zh-tw, ja}} 多语言信封，支持 "
-                             "RENPY_TL_INJECT_LANG 运行时切换语言")
+                             "默认关闭，静态 .rpy 改写流程不受影响。"
+                             "Round 52 C4 BREAKING: --runtime-hook-schema retired, "
+                             "output is always v1 flat {en: zh}.")
     parser.add_argument("--api-key", default="", help="API 密钥（dry-run 模式可不填）")
     parser.add_argument("--model", default=None, help="模型名称 (留空使用默认)")
     parser.add_argument("--genre", default=None, choices=['adult', 'visual_novel', 'rpg', 'general'],
@@ -157,13 +133,6 @@ def main():
                         help="API 最大响应 token 数 (默认: 32768)")
     parser.add_argument("--log-file", default="", metavar="PATH",
                         help="保存详细日志到文件")
-    parser.add_argument("--target-lang", default=None,
-                        help="目标语言 (默认: zh 简体中文)。Round 35: "
-                             "支持逗号分隔多语言（如 ``--target-lang zh,ja,zh-tw``）"
-                             "触发外层语言循环，每语言跑一次流水线；"
-                             "API 成本 N 倍。Round 39: ``--tl-mode`` / "
-                             "``--retranslate`` 也已支持非 zh 目标语言 "
-                             "（per-language prompt + 响应字段别名读取）")
     parser.add_argument("--input-price", type=float, default=None, metavar="USD",
                         help="手动指定输入价格 (每百万 tokens, 美元)")
     parser.add_argument("--output-price", type=float, default=None, metavar="USD",
@@ -241,18 +210,12 @@ def main():
     args.temperature = cfg.get("temperature", 0.1)
     args.max_chunk_tokens = cfg.get("max_chunk_tokens", 4000)
     args.max_response_tokens = cfg.get("max_response_tokens", 32768)
-    args.target_lang = cfg.get("target_lang", "zh")
-    # Round 35 Subtask 1: ``--target-lang zh,ja,zh-tw`` comma-separated
-    # splits into a list of per-language runs.  Single-language syntax
-    # (``--target-lang zh`` / ``--target-lang zh-tw``) stays a 1-element
-    # list so the outer loop below has a single iteration — round-34
-    # behaviour is byte-identical.  BCP-47 tags use hyphens not commas,
-    # so ``zh-tw`` is unambiguously a single language code.
-    args.target_langs = _parse_target_langs(args.target_lang)
-    # args.target_lang stays the first (or only) language so downstream
-    # code that reads the singular form keeps working during the first
-    # iteration of the outer loop.
-    args.target_lang = args.target_langs[0]
+    # Round 52 C4 BREAKING: --target-lang retired; only zh (Simplified
+    # Chinese) is supported.  Pre-r52 the field accepted comma-separated
+    # multi-language input (zh,ja,zh-tw) which drove a per-language outer
+    # loop with N× API cost.  Reduced to single zh hardcode to drop the
+    # 5-layer per-language contract that proved fragile under real load.
+    args.target_lang = "zh"
     args.min_dialogue_density = cfg.get("min_dialogue_density", 0.20)
     args.tl_lang = cfg.get("tl_lang", "chinese")
     if args.dict is None:
@@ -268,11 +231,6 @@ def main():
     if args.ui_button_whitelist:
         from file_processor import load_ui_button_whitelist
         load_ui_button_whitelist(args.ui_button_whitelist)
-
-    # 解析目标语言配置
-    from core.lang_config import get_language_config
-    args.lang_config = get_language_config(args.target_lang)
-    logger.debug(f"[LANG] 目标语言: {args.lang_config.native_name} ({args.lang_config.code})")
 
     # API Key 解析优先级（高 → 低）：
     #   1. --api-key CLI（显式传入；向后兼容）
@@ -294,17 +252,6 @@ def main():
         logger.error("[ERROR] --retranslate 和 --tl-mode 互斥，不能同时使用")
         sys.exit(1)
 
-    # Round 39: the r35 multi-language guard that rejected
-    # ``--tl-mode --target-lang ja`` / ``--retranslate --target-lang ko``
-    # is removed now that ``core.prompts.build_tl_system_prompt`` and
-    # ``build_retranslate_system_prompt`` branch on ``lang_config.code``
-    # to emit a generic English template for non-zh targets, and the
-    # response readers in ``tl_mode._translate_chunk`` /
-    # ``retranslator.retranslate_file`` use
-    # ``core.lang_config.resolve_translation_field`` to read the
-    # per-language field back out of the AI response.  Multi-language
-    # tl-mode / retranslate runs now genuinely work end-to-end.
-
     # Round 28 A-H-3 Minimal: unified engine routing.  Every engine
     # (Ren'Py + auto + rpgmaker + csv + jsonl) now goes through the same
     # ``engines.resolve_engine(...).run(args)`` entry.  Ren'Py-specific
@@ -318,43 +265,9 @@ def main():
         logger.error(f"[ERROR] 无法创建引擎: {engine_arg}")
         sys.exit(1)
 
-    # Round 35 Subtask 1: outer language loop.  Single-language runs take
-    # this path exactly once (no observable behaviour change from r34).
-    # Multi-language runs iterate once per language, re-using the same
-    # ``engine`` instance but swapping ``args.target_lang`` + refreshing
-    # ``args.lang_config``.  API cost scales N× the source file size; the
-    # warning prints up front so the operator can Ctrl-C before anything
-    # is spent.
-    if len(args.target_langs) > 1:
-        logger.warning(
-            "[MULTI-LANG] 即将对 %d 种语言 %s 各跑一次翻译流水线，"
-            "API 成本约为单语言的 %d 倍。按 Ctrl-C 取消。",
-            len(args.target_langs), args.target_langs, len(args.target_langs),
-        )
-    # Round 37 M3: save pre-loop state so any post-loop reader (future
-    # reporting code, integration tests, CLI chaining) observes the
-    # canonical first-language value rather than the last iteration's
-    # residue.  No current reader depends on this invariant but future
-    # extensions would silently regress without it, so the save/restore
-    # pair is a cheap defensive guard.
-    _saved_target_lang = args.target_lang
-    _saved_lang_config = args.lang_config
-    try:
-        for _idx, _lang in enumerate(args.target_langs):
-            args.target_lang = _lang
-            # lang_config 依赖 target_lang；每次迭代刷新，direct-mode 的 system
-            # prompt 才会匹配新语言。
-            args.lang_config = get_language_config(_lang)
-            if len(args.target_langs) > 1:
-                logger.info(
-                    "[MULTI-LANG] === 语言 %d/%d: %s (%s) ===",
-                    _idx + 1, len(args.target_langs), _lang,
-                    args.lang_config.native_name,
-                )
-            engine.run(args)
-    finally:
-        args.target_lang = _saved_target_lang
-        args.lang_config = _saved_lang_config
+    # Round 52 C4 BREAKING: r35-r39 multi-language outer loop retired.
+    # Single zh target → single engine.run(args) call.
+    engine.run(args)
 
 
 if __name__ == "__main__":

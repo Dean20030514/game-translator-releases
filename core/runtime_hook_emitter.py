@@ -94,30 +94,10 @@ _OVERRIDE_ALLOW_BOOL: "dict[str, bool]" = {
 
 def _iter_translation_pairs(
     entries: Iterable[Mapping[str, object]],
-    *,
-    entry_language_filter: "str | None" = None,
 ) -> Iterable[tuple[str, str]]:
     """Yield (original, translation) pairs for successful entries only.
 
-    Accepts anything resembling a ``TranslationDB.entries`` list: each item
-    must be a dict with ``original`` / ``translation`` / ``status`` fields.
-    Entries without a translation or with non-``ok`` status are skipped so
-    the runtime hook never ships a failed translation.
-
-    Args:
-        entries: iterable of entry dicts (``TranslationDB.entries`` shape).
-        entry_language_filter: optional language code.  When non-None, entries
-            are further filtered by their ``language`` field:
-            - entries with ``language == filter`` are kept;
-            - entries with ``language`` absent / ``None`` are kept (legacy
-              v1 entries pre-round-34 have no language; they're treated as
-              universally compatible so v1 DB files still emit correctly);
-            - entries with ``language`` set to a different string are dropped.
-
-            Prevents multi-language DBs (round 34+) from cross-bucket leakage:
-            without this filter, ``build_translations_map`` would collapse by
-            ``original`` alone and could pick a ja translation for a zh emit.
-            Set to ``None`` (default) to preserve round-33 behaviour exactly.
+    Round 52 C4 BREAKING: ``entry_language_filter`` retired (zh-only).
     """
     for entry in entries:
         status = str(entry.get("status", "") or "").lower()
@@ -129,62 +109,26 @@ def _iter_translation_pairs(
             continue
         if not original or not translation:
             continue
-        if entry_language_filter is not None:
-            entry_lang = entry.get("language")
-            # None bucket (legacy entries) passes through; explicit strings
-            # must match; anything else (type mismatch, empty string) drops.
-            if entry_lang is not None and entry_lang != entry_language_filter:
-                continue
         yield original, translation
 
 
 def build_translations_map(
     entries: Iterable[Mapping[str, object]],
-    *,
-    target_lang: str = "zh",
-    schema_version: int = 1,
-    entry_language_filter: "str | None" = None,
 ) -> dict:
     """Collapse a ``TranslationDB.entries`` iterable into the runtime hook
     translations JSON payload.
 
-    Deduplication rule (both schemas): the first successful translation wins
-    (stable across re-runs because ``translation_db.json`` preserves
-    insertion order).  Identical translations across duplicate originals are
-    harmless; conflicting translations keep the first one and log a
-    debug-level notice so a human can investigate if needed.
+    Round 52 C4 BREAKING: v2 nested multi-language schema retired.  Output
+    is always v1 flat ``{original: translation}``.  ``target_lang``,
+    ``schema_version``, ``entry_language_filter`` kwargs all retired.
 
-    Args:
-        entries: ``TranslationDB.entries``-shaped iterable.
-        target_lang: Language code used to key the v2 nested dict.  Ignored
-            for v1.  Defaults to ``"zh"`` to match ``core.config`` defaults.
-        schema_version: 1 → legacy flat ``{original: translation}`` (round
-            31 format); 2 → nested ``{original: {lang: translation}}`` with
-            an ``_schema_version`` / ``_format`` / ``default_lang`` envelope
-            so ``inject_hook.rpy`` can distinguish the two at load time.
-            Default stays v1 so existing runs produce byte-identical output.
-        entry_language_filter: optional — when set, only entries whose
-            ``language`` field equals this value (or is absent / None for
-            legacy v1 rows) contribute to the output map.  Round 34 adds
-            this so multi-language DBs can emit per-language v2 output
-            without ja translations leaking into the zh bucket.  Set to
-            ``None`` (default) for round-33 byte-identical behaviour.
-
-    Returns:
-        dict — either the flat v1 map or the v2 envelope, per
-        ``schema_version``.  Callers that serialise the return value
-        downstream (``emit_runtime_hook``) do not need to branch.
+    Deduplication: first successful translation wins (stable across re-runs
+    because ``translation_db.json`` preserves insertion order).  Conflicting
+    translations keep the first one and log debug-level notice.
     """
-    if schema_version not in (1, 2):
-        raise ValueError(
-            "schema_version must be 1 (flat) or 2 (nested); got %r" % (schema_version,)
-        )
-
     mapping: dict[str, str] = {}
     conflicts = 0
-    for original, translation in _iter_translation_pairs(
-        entries, entry_language_filter=entry_language_filter,
-    ):
+    for original, translation in _iter_translation_pairs(entries):
         existing = mapping.get(original)
         if existing is None:
             mapping[original] = translation
@@ -199,24 +143,7 @@ def build_translations_map(
             "[TL-INJECT] %d original(s) had conflicting translations; kept first occurrence each",
             conflicts,
         )
-
-    if schema_version == 1:
-        # v1 flat format — byte-identical to round 31's output.
-        return mapping
-
-    # v2 nested envelope.  Each original is keyed under its language bucket
-    # so future runs for zh-tw / ja can merge their outputs into the same
-    # JSON.  This round only populates one bucket (the caller's target_lang).
-    nested: dict[str, dict[str, str]] = {
-        original: {target_lang: translation}
-        for original, translation in mapping.items()
-    }
-    return {
-        "_schema_version": 2,
-        "_format": "renpy-translate",
-        "default_lang": target_lang,
-        "translations": nested,
-    }
+    return mapping
 
 
 def _write_json_atomic(path: Path, data: object) -> None:
@@ -440,9 +367,6 @@ def emit_runtime_hook(
     ui_button_extensions: Iterable[str] | None = None,
     font_path: Path | None = None,
     font_config: Mapping[str, object] | None = None,
-    schema_version: int = 1,
-    target_lang: str = "zh",
-    entry_language_filter: "str | None" = None,
 ) -> tuple[Path, Path, int]:
     """Write ``translations.json`` + copy the inject hook into
     ``output_game_dir``.
@@ -481,18 +405,8 @@ def emit_runtime_hook(
             ``define`` defaults without affecting plays that don't set the
             env var.  Unsafe keys (regex mismatch) or non-numeric values
             are filtered out with a warning.
-        schema_version: 1 (default) → flat ``translations.json`` matching
-            round 31 format; 2 → nested multi-language envelope (round 32
-            Subtask C).  Hook reader distinguishes the two via the
-            ``_schema_version`` key.
-        target_lang: Language code used to key v2 buckets.  Ignored for v1.
-            Default ``"zh"`` matches ``core.config.DEFAULTS["target_lang"]``.
-        entry_language_filter: optional — restrict input entries to those
-            whose ``language`` field matches this value (or is absent, for
-            v1-era legacy rows).  Round 34 ``emit_if_requested`` sets this
-            from ``args.target_lang`` on the v2 path so a multi-language
-            DB doesn't cross-contaminate language buckets.  ``None``
-            (default) preserves round-33 behaviour exactly.
+    Round 52 C4 BREAKING: v2 schema and language filter kwargs retired.
+    Output is always v1 flat ``{original: translation}``.
 
     Returns:
         (translations_json_path, hook_rpy_path, entry_count)
@@ -516,23 +430,11 @@ def emit_runtime_hook(
         )
 
     # Build map + write translations.json atomically (temp + os.replace)
-    # so an interrupted run never leaves a half-written JSON.  v1 returns a
-    # flat dict; v2 returns an envelope with an ``_schema_version`` key so
-    # the hook can route correctly at load time.
-    payload = build_translations_map(
-        translation_db_entries,
-        target_lang=target_lang,
-        schema_version=schema_version,
-        entry_language_filter=entry_language_filter,
-    )
+    # so an interrupted run never leaves a half-written JSON.
+    payload = build_translations_map(translation_db_entries)
     json_path = output_game_dir / "translations.json"
     _write_json_atomic(json_path, payload)
-    # ``len(mapping)`` in the legacy return shape reflected translation
-    # count; preserve that for v2 by counting ``translations`` entries.
-    if schema_version == 2 and isinstance(payload, dict):
-        entry_count = len(payload.get("translations", {}) or {})
-    else:
-        entry_count = len(payload) if isinstance(payload, dict) else 0
+    entry_count = len(payload) if isinstance(payload, dict) else 0
 
     # Round 32 Subtask A: optional UI-button whitelist sidecar.  Written
     # only when the caller supplied non-empty extensions — default output
@@ -598,8 +500,8 @@ def emit_runtime_hook(
     shutil.copy2(str(hook_template_path), str(hook_out))
 
     logger.info(
-        "[TL-INJECT] emitted runtime hook (schema v%d): %d translations → %s (+ %s)",
-        schema_version, entry_count, json_path.name, hook_out.name,
+        "[TL-INJECT] emitted runtime hook (v1 flat): %d translations → %s (+ %s)",
+        entry_count, json_path.name, hook_out.name,
     )
     return json_path, hook_out, entry_count
 
@@ -674,29 +576,13 @@ def emit_if_requested(
                 font_config_dict = load_font_config(Path(font_config_path)) or None
             except (ImportError, OSError):
                 font_config_dict = None
-        # Round 32 Subtask C: v1 (flat) vs v2 (nested multi-lang) schema.
-        # CLI --runtime-hook-schema is restricted to ["v1", "v2"] via
-        # argparse choices; this mapping must stay aligned with the
-        # argparse default ("v1") so the emitter kwarg default and CLI
-        # default agree — default output stays byte-compatible with r31.
-        schema_raw = str(getattr(args, "runtime_hook_schema", "v1") or "v1").lower()
-        schema_version = 2 if schema_raw == "v2" else 1
-        target_lang = str(getattr(args, "target_lang", "") or "zh") or "zh"
-        # Round 34 Commit 1: on the v2 path, filter entries by the caller's
-        # target_lang so a multi-language TranslationDB (r34+) doesn't leak
-        # ja translations into a zh emit bucket.  v1 path leaves the filter
-        # as None — the flat map has no language dimension, so filtering
-        # would be over-restrictive for legacy single-lang DBs where every
-        # entry is effectively the caller's current lang anyway.
-        entry_lang_filter = target_lang if schema_version == 2 else None
+        # Round 52 C4 BREAKING: v2 schema retired; --runtime-hook-schema
+        # CLI flag retired; output is always v1 flat {original: translation}.
         emit_runtime_hook(
             output_game_dir, entries,
             ui_button_extensions=ui_ext,
             font_path=font_source,
             font_config=font_config_dict,
-            schema_version=schema_version,
-            target_lang=target_lang,
-            entry_language_filter=entry_lang_filter,
         )
     except (OSError, ValueError, FileNotFoundError) as e:
         logger.warning("[TL-INJECT] emit failed, continuing: %s", e)

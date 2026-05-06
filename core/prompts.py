@@ -189,27 +189,14 @@ _COT_ADDON_ZH = """
 在 JSON 输出中，只返回第 3 步的最终译文。不要输出中间推理步骤。
 """
 
-_COT_ADDON_EN = """
-## Translation Process (Chain-of-Thought)
-
-For each text entry, internally follow these three steps before outputting the final translation:
-1. **Literal translation**: Translate word-by-word faithfully, preserving all placeholders and punctuation
-2. **Review**: Check terminology consistency (refer to glossary), placeholder integrity, grammar naturalness
-3. **Localization**: Based on the review, output the final natural, fluent translation in the target language
-
-In the JSON output, only return the step 3 final translation. Do not output intermediate reasoning steps.
-"""
-
-
 def build_system_prompt(
     genre: str = "adult",
     glossary_text: str = "",
     project_name: Optional[str] = None,
-    lang_config: object = None,
     engine_profile: object = None,
     cot: bool = False,
 ) -> str:
-    """构建系统提示词
+    """构建系统提示词（zh-only since round 52 C4）。
 
     优先加载外部模板中的风格/文化块：
     - prompt_presets/<project_name>/<genre>/style.txt
@@ -217,42 +204,12 @@ def build_system_prompt(
     - 若未提供 project_name，则回退到 prompt_presets/<genre>/...
     - 若找不到外部模板，则使用内置 STYLE_* 与空的文化块。
 
-    lang_config: 目标语言配置（LanguageConfig 实例）。
-      - None 或 code in ("zh", "zh-tw") → 使用现有中文模板（零变更保证）
-      - 其他语言 → 使用英文通用模板
-
     engine_profile: 引擎配置（EngineProfile 实例，可选）。
       - None → Ren'Py 默认路径（现有行为不变）
       - 非 None → 追加引擎专属 prompt addon
 
     cot: 启用 CoT 思维链翻译（直译→校正→意译）。
     """
-    # 判断是否走中文路径（默认 + zh + zh-tw）
-    lang_code = getattr(lang_config, 'code', 'zh') if lang_config else 'zh'
-    if lang_code in ("zh", "zh-tw"):
-        base = _build_chinese_system_prompt(genre, glossary_text, project_name, lang_config)
-    else:
-        base = _build_generic_system_prompt(genre, glossary_text, project_name, lang_config)
-
-    # 追加引擎专属说明（仅非 Ren'Py 引擎）
-    if engine_profile is not None:
-        addon_key = getattr(engine_profile, 'prompt_addon_key', '')
-        addon = _ENGINE_PROMPT_ADDONS.get(addon_key, '')
-        if addon:
-            base = base.rstrip() + "\n\n" + addon.strip() + "\n"
-
-    # 追加 CoT 思维链说明
-    if cot:
-        cot_addon = _COT_ADDON_ZH if lang_code in ("zh", "zh-tw") else _COT_ADDON_EN
-        base = base.rstrip() + "\n" + cot_addon.strip() + "\n"
-
-    return base
-
-
-def _build_chinese_system_prompt(
-    genre: str, glossary_text: str, project_name: Optional[str], lang_config: object,
-) -> str:
-    """中文目标：保持现有中文 prompt 逻辑不变（经过验证的 prompt，不可轻易改动）。"""
     # 1. 解析外部模板目录搜索顺序
     base_dir = Path(__file__).parent / "prompt_presets"
     search_dirs = []
@@ -281,68 +238,24 @@ def _build_chinese_system_prompt(
         glossary_block = f"## 术语表（请保持翻译一致）\n{glossary_text}"
     else:
         glossary_block = ""
-    return SYSTEM_PROMPT_TEMPLATE.format(
+    base = SYSTEM_PROMPT_TEMPLATE.format(
         style_block=style,
         culture_block=culture_block,
         glossary_block=glossary_block,
     )
 
+    # 追加引擎专属说明（仅非 Ren'Py 引擎）
+    if engine_profile is not None:
+        addon_key = getattr(engine_profile, 'prompt_addon_key', '')
+        addon = _ENGINE_PROMPT_ADDONS.get(addon_key, '')
+        if addon:
+            base = base.rstrip() + "\n\n" + addon.strip() + "\n"
 
-# 英文通用模板（用于 ja/ko 等非中文目标语言）
-_GENERIC_SYSTEM_PROMPT_TEMPLATE = """\
-You are a professional game translator specializing in Ren'Py visual novel scripts.
-Target language: {target_language} ({native_name})
+    # 追加 CoT 思维链说明
+    if cot:
+        base = base.rstrip() + "\n" + _COT_ADDON_ZH.strip() + "\n"
 
-{translation_instruction}
-
-## Rules
-- You will receive a .rpy file. Identify all user-visible text (dialogue, narration, menu choices, UI text) and translate them.
-- Return ONLY a JSON array: [{{"line": N, "original": "...", "{field}": "..."}}]
-- Do NOT translate: variable names like [var], code keywords (label/screen/jump/call), image paths, action parameters
-- DO translate: dialogue strings, narration, menu choice text, textbutton display text, _("text") content
-- Preserve all placeholders: [variable], {{tag}}, %(name)s, {{#identifier}}
-- Preserve control tags: {{w}}, {{p}}, {{nw}}, {{fast}}, {{cps=N}} in same positions
-- Preserve escaped newlines \\n count and position
-- Maintain original tone, emotion, and style
-- Translation length should be natural for the target language
-
-{style_notes}
-
-{glossary_block}
-
-## Output Format
-Return a JSON array, each element:
-- `line`: line number (matching file, starting from 1)
-- `original`: original English text (must match exactly)
-- `{field}`: translated text in {target_language}
-
-Do not output any text other than the JSON array.
-"""
-
-
-def _build_generic_system_prompt(
-    genre: str, glossary_text: str, project_name: Optional[str], lang_config: object,
-) -> str:
-    """非中文目标：使用英文通用模板。"""
-    native_name = getattr(lang_config, 'native_name', 'Unknown')
-    target_language = getattr(lang_config, 'name', 'Unknown')
-    field = getattr(lang_config, 'glossary_field', 'translation')
-    style_notes = getattr(lang_config, 'style_notes', '')
-    instruction = getattr(lang_config, 'translation_instruction', '')
-
-    if glossary_text:
-        glossary_block = f"## Glossary (maintain consistency)\n{glossary_text}"
-    else:
-        glossary_block = ""
-
-    return _GENERIC_SYSTEM_PROMPT_TEMPLATE.format(
-        target_language=target_language,
-        native_name=native_name,
-        translation_instruction=instruction,
-        field=field,
-        style_notes=style_notes,
-        glossary_block=glossary_block,
-    )
+    return base
 
 
 def build_user_prompt(filename: str, content: str, chunk_info: dict = None) -> str:
@@ -422,96 +335,13 @@ RETRANSLATE_SYSTEM_PROMPT = """\
 ⚠️ 每个 `>>>` 标记行都必须翻译，遗漏比误翻更严重。"""
 
 
-_GENERIC_RETRANSLATE_SYSTEM_PROMPT = """\
-You are a professional game translator specialising in Ren'Py visual
-novel scripts.  You will receive a snippet of a partially translated
-script in which lines needing translation are marked with ``>>>``.
-
-Target language: {target_language} ({native_name})
-
-{translation_instruction}
-
-## Task
-Translate every line prefixed with ``>>>``.  Unmarked lines are context
-to help you understand the scene — do NOT translate them.
-
-## Rules
-- Every ``>>>`` line MUST be translated; skipping is a worse failure than
-  mistranslating.
-- ``[variable]`` bracketed variable names stay verbatim.
-- ``{{{{tag}}}}`` Ren'Py text tags stay verbatim.
-- ``%(name)s`` format placeholders stay verbatim.
-- ``{{{{#identifier}}}}`` menu-choice identifiers stay verbatim.
-- Preserve ``\\n`` newline count and position.
-- Translate naturally into {target_language}; maintain the original
-  tone, emotion, and register.
-
-{style_notes}
-
-{glossary_block}
-
-## Output Format
-Return a JSON array where each element is:
-- ``line``: 1-based line number (matching the chunk's ``>>> Nnnn|`` markers)
-- ``original``: the exact English source text (no outer quotes)
-- ``{field}``: the translated text in {target_language}
-
-```json
-[
-  {{"line": 236, "original": "So, what's for dinner?", "{field}": "…"}},
-  {{"line": 238, "original": "She smiled warmly.",    "{field}": "…"}}
-]
-```
-
-Return ONLY the raw JSON array — no markdown fences, no commentary,
-no reasoning trace.  Missing a marked line is worse than a clumsy
-translation."""
-
-
-def build_retranslate_system_prompt(
-    glossary_text: str = "",
-    lang_config: object = None,
-) -> str:
-    """Build the retranslate-mode system prompt.
-
-    Round 39: accepts an optional ``lang_config`` and branches by
-    target-language code.  ``None`` or ``zh`` / ``zh-tw`` → the existing
-    Chinese template (byte-identical r38 behaviour).  Other languages
-    (``ja`` / ``ko`` / etc.) → a new generic English template that
-    instructs the model to emit the ``{lang_config.glossary_field}``
-    field with the translation in ``{lang_config.name}``; the reader in
-    :func:`translators.retranslator.retranslate_file` uses
-    :func:`core.lang_config.resolve_translation_field` to pick the value
-    back up.
-    """
-    lang_code = getattr(lang_config, "code", "zh") if lang_config else "zh"
-    if lang_code in ("zh", "zh-tw"):
-        # Chinese path: preserve existing template byte-identical (the
-        # production-validated prompt worth keeping stable).
-        if glossary_text:
-            glossary_block = f"## 术语表\n{glossary_text}"
-        else:
-            glossary_block = ""
-        return RETRANSLATE_SYSTEM_PROMPT.format(glossary_block=glossary_block)
-    # Generic (non-zh) path: English meta-prompt with lang_config fields
-    # substituted in.
-    native_name = getattr(lang_config, "native_name", "Unknown")
-    target_language = getattr(lang_config, "name", "Unknown")
-    field = getattr(lang_config, "glossary_field", "translation")
-    style_notes = getattr(lang_config, "style_notes", "")
-    instruction = getattr(lang_config, "translation_instruction", "")
+def build_retranslate_system_prompt(glossary_text: str = "") -> str:
+    """Build the retranslate-mode system prompt (zh-only since round 52 C4)."""
     if glossary_text:
-        glossary_block = f"## Glossary (maintain consistency)\n{glossary_text}"
+        glossary_block = f"## 术语表\n{glossary_text}"
     else:
         glossary_block = ""
-    return _GENERIC_RETRANSLATE_SYSTEM_PROMPT.format(
-        target_language=target_language,
-        native_name=native_name,
-        translation_instruction=instruction,
-        field=field,
-        style_notes=style_notes,
-        glossary_block=glossary_block,
-    )
+    return RETRANSLATE_SYSTEM_PROMPT.format(glossary_block=glossary_block)
 
 
 def build_retranslate_user_prompt(
@@ -585,112 +415,23 @@ TLMODE_SYSTEM_PROMPT = """\
 每条都必须翻译，遗漏比误翻更严重。"""
 
 
-_GENERIC_TLMODE_SYSTEM_PROMPT = """\
-You are a professional Ren'Py visual novel translator.  You will receive
-extracted translation entries from Ren'Py's translation framework and
-must translate each English source text.
-
-Target language: {target_language} ({native_name})
-
-{translation_instruction}
-
-## Entry Format
-Each entry in the chunk carries a header line:
-- ``[ID: xxx]`` marks a dialogue entry; ``[Char: yyy]`` is the speaking
-  character (may be empty for narration).
-- ``[STRING]`` marks a UI / system string entry.
-- ``[MULTILINE]`` marks an entry containing ``\\n`` line breaks — you
-  MUST preserve every ``\\n`` in the translation.
-
-## Rules
-- Every entry MUST be translated — skipping is a worse failure than
-  mistranslating.
-- ``[variable]`` bracketed variable names stay verbatim.
-- ``{{{{tag}}}}content{{{{/tag}}}}`` — keep the tags verbatim, translate
-  only the content between them.
-- ``%(name)s`` format placeholders stay verbatim.
-- ``{{{{#identifier}}}}`` menu-choice identifiers stay verbatim.
-- Preserve ``\\n`` newline count AND position — especially inside
-  ``[MULTILINE]`` entries.
-- Translate naturally into {target_language}; match the original
-  tone, emotion, and register.
-
-{style_notes}
-
-{glossary_block}
-
-## Output Format
-Return a JSON array where each element has:
-- ``id``: identifier (e.g. ``"start_636ae3f5"``) for dialogue entries,
-  or the original text itself (e.g. ``"History"``) for string entries.
-- ``original``: the exact English source text.
-- ``{field}``: the translated text in {target_language}.
-
-```json
-[
-  {{"id": "start_636ae3f5", "original": "Hello, how are you?", "{field}": "…"}},
-  {{"id": "History", "original": "History", "{field}": "…"}}
-]
-```
-
-Return ONLY the raw JSON array — no markdown fences, no commentary,
-no reasoning trace.  Every entry must have a translation."""
-
-
 def build_tl_system_prompt(
     glossary_text: str = "",
     genre: str = "adult",
     cot: bool = False,
-    lang_config: object = None,
 ) -> str:
-    """Build the tl-mode system prompt.
-
-    Round 39: accepts an optional ``lang_config`` and branches by
-    target-language code.  ``None`` or ``zh`` / ``zh-tw`` → the existing
-    Chinese template (byte-identical r38 behaviour).  Other languages
-    (``ja`` / ``ko`` / etc.) → a new generic English template that
-    instructs the model to emit the ``{lang_config.glossary_field}``
-    field with the translation in ``{lang_config.name}``; the reader in
-    :func:`translators.tl_mode._translate_chunk` uses
-    :func:`core.lang_config.resolve_translation_field` to pick the value
-    back up.
-    """
-    lang_code = getattr(lang_config, "code", "zh") if lang_config else "zh"
-    if lang_code in ("zh", "zh-tw"):
-        # Chinese path: preserve existing template byte-identical (the
-        # production-validated prompt worth keeping stable).
-        style_block = _STYLES.get(genre, STYLE_GENERAL)
-        if glossary_text:
-            glossary_block = f"## 术语表（请保持翻译一致）\n{glossary_text}"
-        else:
-            glossary_block = ""
-        base = TLMODE_SYSTEM_PROMPT.format(
-            style_block=style_block,
-            glossary_block=glossary_block,
-        )
-        if cot:
-            base = base.rstrip() + "\n" + _COT_ADDON_ZH.strip() + "\n"
-        return base
-    # Generic (non-zh) path.
-    native_name = getattr(lang_config, "native_name", "Unknown")
-    target_language = getattr(lang_config, "name", "Unknown")
-    field = getattr(lang_config, "glossary_field", "translation")
-    style_notes = getattr(lang_config, "style_notes", "")
-    instruction = getattr(lang_config, "translation_instruction", "")
+    """Build the tl-mode system prompt (zh-only since round 52 C4)."""
+    style_block = _STYLES.get(genre, STYLE_GENERAL)
     if glossary_text:
-        glossary_block = f"## Glossary (maintain consistency)\n{glossary_text}"
+        glossary_block = f"## 术语表（请保持翻译一致）\n{glossary_text}"
     else:
         glossary_block = ""
-    base = _GENERIC_TLMODE_SYSTEM_PROMPT.format(
-        target_language=target_language,
-        native_name=native_name,
-        translation_instruction=instruction,
-        field=field,
-        style_notes=style_notes,
+    base = TLMODE_SYSTEM_PROMPT.format(
+        style_block=style_block,
         glossary_block=glossary_block,
     )
     if cot:
-        base = base.rstrip() + "\n" + _COT_ADDON_EN.strip() + "\n"
+        base = base.rstrip() + "\n" + _COT_ADDON_ZH.strip() + "\n"
     return base
 
 

@@ -89,7 +89,6 @@ jobs:
           python -m py_compile tools/review_generator.py
           python -m py_compile tools/rpa_packer.py
           python -m py_compile tools/rpa_unpacker.py
-          python -m py_compile tools/merge_translations_v2.py
           python -m py_compile tools/translation_editor.py
           python -m py_compile tools/_translation_editor_html.py
           python -m py_compile tools/analyze_writeback_failures.py
@@ -128,10 +127,6 @@ jobs:
         run: python tests/test_batch1.py
       - name: Run translation editor v1 tests
         run: python tests/test_translation_editor.py
-      - name: Run translation editor v2 tests
-        run: python tests/test_translation_editor_v2.py
-      - name: Run merge_translations_v2 tests
-        run: python tests/test_merge_translations_v2.py
       - name: Run custom engine tests
         run: python tests/test_custom_engine.py
       - name: Run sandbox response cap tests
@@ -150,18 +145,10 @@ jobs:
         run: python tests/test_tl_pipeline.py
       - name: Run runtime hook filter tests
         run: python tests/test_runtime_hook_filter.py
-      - name: Run runtime hook v2 schema tests
-        run: python tests/test_runtime_hook_v2_schema.py
-      - name: Run progress tracker language tests
-        run: python tests/test_progress_tracker_language.py
       - name: Run file safety tests
         run: python tests/test_file_safety.py
       - name: Run file safety C5 expansion tests
         run: python tests/test_file_safety_c5.py
-      - name: Run translation_db language tests
-        run: python tests/test_translation_db_language.py
-      - name: Run multilang run tests
-        run: python tests/test_multilang_run.py
       - name: Run override categories tests
         run: python tests/test_override_categories.py
       - name: Run UI whitelist tests

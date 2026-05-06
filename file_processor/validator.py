@@ -279,11 +279,10 @@ def _check_quality_heuristics(
     orig: str, trans: str, line_num: int,
     len_ratio_lower: float,
     len_ratio_upper: float,
-    lang_config: object = None,
 ) -> list[dict]:
-    """检查翻译风格、长度比例、目标文字占比等质量启发规则。
+    """检查翻译风格、长度比例、中文占比等质量启发规则。
 
-    lang_config: 目标语言配置（LanguageConfig 实例），用于 W442 目标文字检测。
+    Round 52 C4 BREAKING: lang_config kwarg retired (zh-only).
     """
     issues: list[dict] = []
 
@@ -323,22 +322,15 @@ def _check_quality_heuristics(
                     "message": f"译文长度比例异常: x{ratio:.2f}（原 {len(orig_text)} 字，译 {len(trans_text)} 字）"
                 })
 
-        # W442: 目标文字占比极低（参数化：使用 lang_config 的检测函数和阈值）
+        # W442: 中文占比极低（zh-only since round 52 C4）
         if len(orig_text) >= 25 and len(trans_text) >= 15:
-            if lang_config and hasattr(lang_config, 'target_script_detector'):
-                target_ratio = lang_config.target_script_detector(trans_text)
-                min_ratio = getattr(lang_config, 'min_target_ratio', MIN_CHINESE_RATIO)
-            else:
-                # 默认：中文检测（向后兼容）
-                target_ratio = sum(1 for c in trans_text if '\u4e00' <= c <= '\u9fff') / len(trans_text)
-                min_ratio = MIN_CHINESE_RATIO
-            if target_ratio < min_ratio:
-                lang_name = getattr(lang_config, 'native_name', '中文') if lang_config else '中文'
+            target_ratio = sum(1 for c in trans_text if '一' <= c <= '鿿') / len(trans_text)
+            if target_ratio < MIN_CHINESE_RATIO:
                 issues.append({
                     "level": "warning",
                     "code": "W442_SUSPECT_ENGLISH_OUTPUT",
                     "line": line_num,
-                    "message": f"译文中{lang_name}字符占比极低（{target_ratio:.1%}），疑似未翻译"
+                    "message": f"译文中中文字符占比极低（{target_ratio:.1%}），疑似未翻译"
                 })
 
     return issues
@@ -423,15 +415,10 @@ def validate_translation(
     glossary_no_translate: Optional[set[str]] = None,
     len_ratio_lower: float = 0.3,
     len_ratio_upper: float = 2.5,
-    lang_config: object = None,
 ) -> list[dict]:
     """全面校验翻译后的文件（规则化质量检查）
 
-    Args:
-        original_content: 原始文件内容
-        translated_content: 翻译后文件内容
-        filename: 文件名（用于报告）
-        lang_config: 目标语言配置（LanguageConfig 实例），用于 W442 参数化
+    Round 52 C4 BREAKING: lang_config kwarg retired (zh-only).
 
     Returns:
         [{"level": "error"|"warning", "line": N, "message": "..."}]
@@ -457,7 +444,7 @@ def validate_translation(
             orig, trans, i, glossary_terms, glossary_locked, glossary_no_translate,
         ))
         issues.extend(_check_quality_heuristics(
-            orig, trans, i, len_ratio_lower, len_ratio_upper, lang_config,
+            orig, trans, i, len_ratio_lower, len_ratio_upper,
         ))
         issues.extend(_check_control_tags_and_keywords(orig, trans, i))
 

@@ -76,17 +76,12 @@ class TranslationContext:
     注意：并发路径（ThreadPoolExecutor）中不应直接修改 all_warnings，
     而是通过 ChunkResult 返回 warnings，由主线程串行合并。
 
-    Round 39: ``lang_config`` 字段让 tl-mode / retranslate 的 chunk
-    处理函数知道目标语言，用 :func:`core.lang_config.resolve_translation_
-    field` 从 AI 响应里按 alias 读取译文（原 `t.get("zh", "")` 硬编码
-    替代）。``None`` 保 r38 byte-identical（direct-mode 内部不走这条
-    路径，tl-mode / retranslate 以前本来就只产出中文）。
+    Round 52 C4 BREAKING: ``lang_config`` field retired (zh-only target).
     """
     client: object              # APIClient 实例
     system_prompt: str          # 当前翻译的系统 prompt
     rel_path: str               # 当前文件相对路径（用于 user_prompt 构建）
     locked_terms_map: "dict[str, str]" = field(default_factory=dict)  # {英文术语: 中文译名}，用于预替换保护
-    lang_config: "object | None" = None  # Round 39: target language config for multi-lang tl-mode/retranslate
 
 
 # ============================================================
@@ -102,53 +97,17 @@ class ProgressTracker:
     - 对 ``mark_chunk_done`` 这类热路径，主锁只持有极短时间（dict 更新 + 序列化），
       实际磁盘写在主锁外、``_save_lock`` 内执行，避免 worker 间串行化
 
-    Round 35 C1: 可选 ``language`` kwarg 开启 language-aware namespace。
-    当设置时，所有按 ``rel_path`` 索引的 dict key 会变成 ``"<lang>:<rel_path>"``
-    形式，让同一游戏在同一输出目录并行跑多语言时不互相污染 progress 状态。
-    读路径做向后兼容：如果 namespaced key 不存在但 bare key 存在（pre-r35
-    progress 文件），仍能读到，保证 round-34 文件 resume 不失效。写路径始
-    终用 namespaced key；遗留 bare key 在 ``mark_file_done`` 时顺便清理。
-    ``language=None`` （默认）等价于 round-34 byte-identical 行为。
-
-    Round 36 H1: bare-key fallback is restricted to ``self.language ==
-    self._LEGACY_BARE_LANG`` (zh) or ``self.language is None``.  Non-zh
-    languages running against pre-r35 bare-key progress files treat the
-    data as foreign to avoid cross-language skip bugs (where ja/ko would
-    inherit zh's completed chunks and silently leave their DB bucket
-    empty).  Mirror guard on ``mark_file_done``: only zh / no-language
-    trackers clean the bare bucket on file completion — non-zh trackers
-    leave it alone to preserve a future zh resume.
+    Round 52 C4 BREAKING: language-aware namespace (r35 C1 / r36 H1) retired.
+    Only zh target supported; progress keys are bare ``rel_path``.
     """
 
-    # Round 36 H1: language that implicitly owns pre-r35 bare-key progress
-    # data.  Matches ``core.config.DEFAULTS["target_lang"]`` because pre-r35
-    # never supported any other target_lang — the multi-language outer
-    # loop (``main._parse_target_langs``) landed in round 35.  See class
-    # docstring above for the full H1 rationale.  If a future round changes
-    # the project's default target language, update this constant in
-    # lockstep.
-    _LEGACY_BARE_LANG: str = "zh"
-
-    def __init__(self, progress_file: Path, *, language: "str | None" = None):
+    def __init__(self, progress_file: Path):
         self.path = progress_file
-        self.language = language if (isinstance(language, str) and language) else None
         self._lock = threading.Lock()
         self._save_lock = threading.Lock()
         self._dirty = 0  # 未写入磁盘的 mark 操作计数
         self.data: dict = {"completed_files": [], "completed_chunks": {}, "stats": {}}
         self._load()
-
-    def _key(self, rel_path: str) -> str:
-        """Round 35 C1: language-namespaced write key for ``rel_path``.
-
-        Returns ``"<lang>:<rel_path>"`` when ``self.language`` is set, else
-        the bare ``rel_path`` (round-34 behaviour).  Read-side callers
-        should fall back to the bare key on miss for backward compat with
-        pre-round-35 ``progress.json`` files.
-        """
-        if self.language:
-            return f"{self.language}:{rel_path}"
-        return rel_path
 
     def _load(self) -> None:
         if self.path.exists():
@@ -235,44 +194,24 @@ class ProgressTracker:
             raise
 
     def is_file_done(self, rel_path: str) -> bool:
-        # Round 35 C1 + Round 36 H1: prefer language-namespaced key.
-        # Bare-key fallback is restricted to ``_LEGACY_BARE_LANG`` (zh)
-        # or unset language — non-zh langs must NOT inherit zh's pre-r35
-        # completion state (H1 cross-language skip bug: ja would see zh's
-        # completed files as "done" and silently leave its DB bucket empty).
-        completed = self.data.get("completed_files", [])
-        if self.language:
-            if self._key(rel_path) in completed:
-                return True
-            if self.language != self._LEGACY_BARE_LANG:
-                return False
-        return rel_path in completed
+        # Round 52 C4 BREAKING: language-namespaced key check retired.
+        return rel_path in self.data.get("completed_files", [])
 
     def is_chunk_done(self, rel_path: str, part: int) -> bool:
-        # Round 35 C1 + Round 36 H1: check namespaced bucket first.
-        # Bare-key fallback only for ``_LEGACY_BARE_LANG`` (zh) or unset
-        # language — non-zh langs must NOT inherit zh's pre-r35 completed
-        # chunks (H1 cross-language skip bug).
-        chunks = self.data.get("completed_chunks", {})
-        if self.language:
-            if part in chunks.get(self._key(rel_path), []):
-                return True
-            if self.language != self._LEGACY_BARE_LANG:
-                return False
-        return part in chunks.get(rel_path, [])
+        # Round 52 C4 BREAKING: language-namespaced key check retired.
+        return part in self.data.get("completed_chunks", {}).get(rel_path, [])
 
     def mark_chunk_done(self, rel_path: str, part: int, translations: list[dict]) -> None:
         should_flush = False
-        key = self._key(rel_path)
         with self._lock:
             chunks = self.data.setdefault("completed_chunks", {})
-            chunk_list = chunks.setdefault(key, [])
+            chunk_list = chunks.setdefault(rel_path, [])
             if part not in chunk_list:
                 chunk_list.append(part)
 
             # 保存该 chunk 的翻译结果
             results = self.data.setdefault("results", {})
-            file_results = results.setdefault(key, [])
+            file_results = results.setdefault(rel_path, [])
             file_results.extend(translations)
             self._dirty += 1
             if self._dirty >= SAVE_INTERVAL:
@@ -282,39 +221,19 @@ class ProgressTracker:
             self._flush_to_disk()
 
     def get_file_translations(self, rel_path: str) -> list[dict]:
-        """获取文件的所有已完成翻译.
+        """获取文件的所有已完成翻译。
 
-        Round 35 C1: 合并 namespaced bucket + 旧 bare bucket 的结果，
-        让从 round-34 progress.json 接续的 resume 不丢失已翻译条目。
-
-        Round 36 H1: 非 ``_LEGACY_BARE_LANG``（非 zh）的 language-aware
-        tracker 跳过 bare bucket 合并，防止 pre-r35 的 zh bare 数据
-        污染 ja/ko 等其他语言的 resume 集合。
+        Round 52 C4 BREAKING: language-namespaced bucket retired.
         """
-        results = self.data.get("results", {})
-        combined: list[dict] = []
-        if self.language:
-            combined.extend(results.get(self._key(rel_path), []))
-            if self.language != self._LEGACY_BARE_LANG:
-                return combined
-        combined.extend(results.get(rel_path, []))
-        return combined
+        return list(self.data.get("results", {}).get(rel_path, []))
 
     def mark_file_done(self, rel_path: str) -> None:
-        key = self._key(rel_path)
         with self._lock:
-            if key not in self.data["completed_files"]:
-                self.data["completed_files"].append(key)
-            # 清理 chunk 级数据（已完成文件不需要保留）— namespaced key 始终清。
-            self.data.get("completed_chunks", {}).pop(key, None)
-            self.data.get("results", {}).pop(key, None)
-            # Round 35 C1 + Round 36 H1: bare bucket 只由 owner 语言
-            # （zh，或 no-language tracker）清。非 zh language-aware
-            # tracker 触碰 bare 会误删另一个语言（隐式 zh）尚未迁移的
-            # resume 数据。
-            if self.language is None or self.language == self._LEGACY_BARE_LANG:
-                self.data.get("completed_chunks", {}).pop(rel_path, None)
-                self.data.get("results", {}).pop(rel_path, None)
+            if rel_path not in self.data["completed_files"]:
+                self.data["completed_files"].append(rel_path)
+            # 清理 chunk 级数据（已完成文件不需要保留）
+            self.data.get("completed_chunks", {}).pop(rel_path, None)
+            self.data.get("results", {}).pop(rel_path, None)
             self._dirty = 0
         self._flush_to_disk()
 

@@ -96,7 +96,7 @@ def main(argv: list[str] | None = None) -> int:
     hidden_imports = [
         # core infrastructure
         "core", "core.api_client", "core.config", "core.glossary",
-        "core.lang_config", "core.prompts", "core.translation_db",
+        "core.prompts", "core.translation_db",
         "core.translation_utils",
         # translators
         "translators", "translators.direct", "translators.tl_mode",

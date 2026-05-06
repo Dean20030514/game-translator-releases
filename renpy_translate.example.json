@@ -14,7 +14,7 @@
     "temperature": 0.1,
     "max_chunk_tokens": 4000,
 
-    "target_lang": "zh",
+    "_comment_target_lang": "Round 52 C4 BREAKING: target_lang field retired (always zh).",
     "exclude": ["tl/*", "*.bak"],
     "dict": [],
     "min_dialogue_density": 0.20,

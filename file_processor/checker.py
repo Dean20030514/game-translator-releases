@@ -281,27 +281,17 @@ def check_response_chunk(chunk_content: str, translations: list[dict]) -> list[s
 
 
 def check_response_item(item: dict, line_offset: int = 0,
-                        placeholder_re: "re.Pattern | None" = None,
-                        lang_config: "object | None" = None) -> list[str]:
+                        placeholder_re: "re.Pattern | None" = None) -> list[str]:
     """轻量 ResponseChecker：对单条 API 返回的翻译做本地校验，不调 API。
 
     检查：原文非空时译文非空、占位符集合一致、必要字段存在。
     任一不通过则返回非空列表，调用方应丢弃该条（不写入译文，保留原文计漏翻）。
 
-    Round 42 M2 phase-4: when ``lang_config`` is provided, the translation
-    field is resolved through
-    :func:`core.lang_config.resolve_translation_field` — so a Japanese
-    response using the ``"ja"`` / ``"jp"`` / ``"japanese"`` alias is
-    accepted instead of the checker's previous hard-coded ``"zh"`` read.
-    Passing ``None`` (default) preserves r41 byte-identical behaviour.
+    Round 52 C4 BREAKING: lang_config kwarg retired (zh-only). Translation
+    field hard-coded to ``item["zh"]``.
 
     Args:
         placeholder_re: 自定义占位符正则。None 时使用默认 Ren'Py 模式。
-        lang_config: optional :class:`core.lang_config.LanguageConfig`;
-            when non-None, the ``field_aliases`` chain is used to read the
-            translation field.  Import is deferred to the branch that uses
-            it, so ``file_processor`` stays independent of ``core`` at
-            module load time.
     Returns:
         警告信息列表，空表示通过。
     """
@@ -310,14 +300,7 @@ def check_response_item(item: dict, line_offset: int = 0,
     if line_offset:
         line = line + line_offset
     original = (item.get("original") or "").strip()
-    if lang_config is not None:
-        # Deferred import keeps file_processor independent of core at
-        # module load (preserves r27 A-H-2 layering: core → file_processor
-        # is allowed, the reverse is not).
-        from core.lang_config import resolve_translation_field
-        zh = (resolve_translation_field(item, lang_config) or "").strip()
-    else:
-        zh = (item.get("zh") or "").strip()
+    zh = (item.get("zh") or "").strip()
 
     if not original:
         warnings.append(f"行 {line}: original 为空")
@@ -351,7 +334,6 @@ def check_response_item(item: dict, line_offset: int = 0,
 def _filter_checked_translations(
     translations: list[dict],
     line_offset: int = 0,
-    lang_config: "object | None" = None,
 ) -> tuple[list[dict], int, list[dict], list[str]]:
     """Run ``check_response_item`` on each translation dict and split the
     input into kept / dropped / warnings.
@@ -362,10 +344,7 @@ def _filter_checked_translations(
     introduced ``[姓名]`` → ``[name]`` drift can be salvaged.  The fix
     is idempotent and side-effect-free when no drift exists.
 
-    Round 42 M2 phase-4: ``lang_config`` is forwarded to
-    :func:`check_response_item` so non-zh targets resolve the
-    translation field through the alias chain instead of the
-    hard-coded ``"zh"`` read.  ``None`` default preserves r41 behaviour.
+    Round 52 C4 BREAKING: lang_config kwarg retired (zh-only).
 
     Returns ``(kept, dropped_count, dropped_items, warnings)``.  Empty
     results are returned when ``translations`` is empty — callers never
@@ -385,9 +364,7 @@ def _filter_checked_translations(
                 fixed = fix_chinese_placeholder_drift(val)
                 if fixed != val:
                     t[key] = fixed
-        item_warnings = check_response_item(
-            t, line_offset=line_offset, lang_config=lang_config,
-        )
+        item_warnings = check_response_item(t, line_offset=line_offset)
         if item_warnings:
             dropped_count += 1
             dropped_items.append(t)

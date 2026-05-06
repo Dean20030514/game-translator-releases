@@ -1,10 +1,10 @@
 # HANDOFF — Round 51 末 → Round 52 起点
 
 <!-- VERIFIED-CLAIMS-START -->
-tests_total: 508
-test_files: 36
-ci_steps: 40
-assertion_points: 634
+tests_total: 431
+test_files: 30
+ci_steps: 34
+assertion_points: 557
 <!-- VERIFIED-CLAIMS-END -->
 
 > **上方 fenced 块是声明数字的唯一位置**。其他文档（`CLAUDE.md` / `.cursorrules` / `CHANGELOG.md` / `_archive/EVOLUTION.md` / `README.md` 等）只能引用这些数字，**不能重新声明**。`scripts/verify_docs_claims.py` 在 pre-commit hook 自动检查，drift fails the commit。
@@ -41,7 +41,7 @@ assertion_points: 634
 | 数据完整性 | ✅ TranslationDB 线程安全（RLock）+ 原子写入（os.replace）+ schema v2 partial backfill |
 | 反序列化安全 | ✅ 3 处 pickle 全白名单（`core/pickle_safe.py` + rpyc Tier 1+2 + rpa_unpacker） |
 | 插件沙箱 | ✅ **Subprocess 强制沙箱**（r52 BREAKING retire importlib）+ 启动期 readiness probe + 三通道防护（stdout 50M chars + stderr 10K + stdin lifecycle） |
-| 多语言完整栈 | ✅ 5 层 code-level contract（prompt + alias-read + checker + zh-tw 隔离 + generic fallback） |
+| 目标语言 | ✅ **zh 简体中文 only**（r52 C4 BREAKING：r35-r48 多目标语言 5 层 contract + `core/lang_config.py` + `--target-lang` + translation_db v2 schema + runtime-hook v2 schema 全部 retire；存量 v2 DB 用 `scripts/migrate_db_v2_to_v1.py` 迁移） |
 | OOM 防护 | ✅ 23/23 user-facing path-stat + 26 sites / 12 modules TOCTOU MITIGATED via `core.file_safety` 共享 helper |
 | Mock target stale trap | ✅ CI grep step 兜底（防 r48 trap CLASS 复发；r50 C4 filter 放宽到 `file_safety` 兼容 qualified form；r51 audit-tail 加第三级 `test_repo_rename_consistency` filter 豁免 documentation-only 文件 self-trip） |
 | Repo rename consistency | ✅ Round 51 加 4 contract tests 钉自身 repo URL refs + logger namespace + 上游归属反向 exhaustiveness |
@@ -62,7 +62,7 @@ assertion_points: 634
 
 ### 🟠 需真实 API + 游戏（独立一轮）
 
-4. **非中文目标语言端到端验证**（生产 ja / ko / zh-tw） — r39-r48 多层契约已锁死
+4. ~~**非中文目标语言端到端验证**（生产 ja / ko / zh-tw）~~ — **r52 C4 BREAKING retired**：multi-target language contract 已完全删除，目标语言固定 zh
 5. **A-H-3 Medium**：adapter 让 Ren'Py 走 generic_pipeline 6 阶段
 6. **A-H-3 Deep**：完全退役 DialogueEntry
 7. ~~**S-H-4 Breaking**：强制所有 plugins 走 subprocess~~ — **r52 C3 完成**（commit see git log；importlib 完全 retire + readiness probe at __init__）
@@ -76,6 +76,10 @@ assertion_points: 634
 - TOCTOU fstat 自身 race 窗口（极小 microsecond 级）
 - Symlink path-swap TOCTOU（current codebase 无 exploit vector，本地 single-user 工具 not actionable）
 - Logger namespace 行为契约（r51 architectural decision）— 静态 orphan grep 充分；如未来引入 logging filter / sink / metric pipeline，需 reconsider
+- **Round 52 C4 watchlist 1**：`tl_mode.py:484-532` retry 阶段单线程 + 零 progress logging；大规模残留时性能塌陷（27000+ entries × serial ≈ 8-45h）但用户视角为"卡死"。修需 ThreadPoolExecutor + per-chunk log + retry chunk size 自适应
+- **Round 52 C4 watchlist 2**：`core/api_client.py` JSON 容错链对 LLM mis-escape（`\"...\"` 在 string value 内部）不够鲁棒。修需 retry path 接入 6 级降级链或加 escape-fix 预处理
+- **Round 52 C4 watchlist 3**：tl-mode stage 3 fallback 4 层未匹配率异常高（实测 27377 / 76225 = 36% 漏匹配大量压给 retry 阶段）。修需 audit StringEntry fallback 的 4 层链 + LLM ID 漂移检测
+- **Round 52 C4 watchlist 4**：direct-mode 残留检测 `MIN_ENGLISH_CHARS_FOR_UNTRANSLATED = 12` 假设源是英语。ja/ko/zh-tw 源游戏跑 direct-mode 漏翻判定可能误判（用 tl-mode 绕开）— 用户当前不需要
 
 ---
 
@@ -90,12 +94,12 @@ assertion_points: 634
 | 全量历史 | `_archive/CHANGELOG_FULL.md` + `_archive/CHANGELOG_RECENT_r51.md`（r47-r51 详细） |
 | 入口 | `main.py` / `gui.py`（mixin） / `one_click_pipeline.py` |
 | 引擎抽象 | `engines/{engine_base, engine_detector, generic_pipeline, renpy_engine, rpgmaker_engine, csv_engine}.py` |
-| 核心 | `core/{api_client, api_plugin, config, glossary, prompts, translation_db, translation_utils, lang_config, http_pool, pickle_safe, font_patch, runtime_hook_emitter, file_safety}.py` |
+| 核心 | `core/{api_client, api_plugin, config, glossary, prompts, translation_db, translation_utils, http_pool, pickle_safe, font_patch, runtime_hook_emitter, file_safety}.py`（r52 C4：lang_config 已删除） |
 | 流水线 | `pipeline/{helpers, gate, stages}.py` |
 | 测试 | `tests/test_all.py` meta-runner + 34 独立 suites（含 r51 新加 `test_repo_rename_consistency.py`） |
 | docs | `docs/ARCHITECTURE.md`（架构 + 数据流 + 校验链 + 引擎指南 + 测试体系）+ `docs/REFERENCE.md`（常量 + 错误码 + 路线图） |
-| CI | `.github/workflows/test.yml`（双 OS matrix × 3 Python = 6 jobs，38 steps）+ `scripts/verify_workflow.py` |
-| 开发者工具 | `.gitattributes` + `.gitignore` + `build.py --clean-only` + `.git-hooks/pre-commit` + `scripts/{install_hooks.sh, verify_workflow.py, verify_docs_claims.py}` |
+| CI | `.github/workflows/test.yml`（双 OS matrix × 3 Python = 6 jobs；step 数见 VERIFIED-CLAIMS）+ `scripts/verify_workflow.py` |
+| 开发者工具 | `.gitattributes` + `.gitignore` + `build.py --clean-only` + `.git-hooks/pre-commit` + `scripts/{install_hooks.sh, verify_workflow.py, verify_docs_claims.py, migrate_db_v2_to_v1.py}` |
 
 ---
 

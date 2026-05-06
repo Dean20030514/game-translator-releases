@@ -6,6 +6,8 @@
 
 纯 Python（**零第三方依赖**，Python ≥ 3.9）多引擎游戏汉化工具。支持 Ren'Py / RPG Maker MV-MZ / CSV-JSONL，五大 LLM provider（xAI/OpenAI/DeepSeek/Claude/Gemini）+ 自定义引擎插件（**round 52 起强制 subprocess 沙箱**，importlib 模式 retired BREAKING）。
 
+**目标语言：zh 简体中文 only**（round 52 C4 BREAKING：r35-r48 多目标语言 contract 已完全删除；ja/ko/zh-tw 输出不再支持，`--target-lang` flag retired，translation_db v2 schema retired，runtime-hook v2 schema retired，`core/lang_config.py` 删除。源语言不限——LLM 自动识别，tl-mode 天然支持任何源 → zh）。
+
 **当前数字**（测试数 / 文件数 / CI 步骤 / 断言点）：见 [HANDOFF.md](HANDOFF.md) 顶部 `<!-- VERIFIED-CLAIMS-START -->` 块 — **单一声称源**。本文 prose 不再独立声称数字。
 
 **质量水位**：direct-mode 漏翻率 4.01%；tl-mode 翻译成功率 99.97%；连续 11 轮 0 CRITICAL correctness（r35-r51）。

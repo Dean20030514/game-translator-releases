@@ -206,13 +206,12 @@ def run_generic_pipeline(engine, args) -> None:
     from core.translation_db import TranslationDB
     from file_processor import protect_placeholders, restore_placeholders, check_response_item
     from core.prompts import build_system_prompt
-    from core.lang_config import get_language_config
 
     game_dir = Path(args.game_dir)
     output_dir = Path(getattr(args, 'output_dir', 'output') or 'output')
     output_dir.mkdir(parents=True, exist_ok=True)
-    target_lang = getattr(args, 'target_lang', 'zh') or 'zh'
-    lang_config = get_language_config(target_lang)
+    # Round 52 C4 BREAKING: target_lang fixed to "zh"; lang_config retired.
+    target_lang = "zh"
     profile = engine.profile
 
     # ── Stage 0: 提取 ──
@@ -263,12 +262,8 @@ def run_generic_pipeline(engine, args) -> None:
         except Exception as e:
             logger.debug(f"[PIPELINE] RPG Maker 术语扫描失败（不影响翻译）: {e}")
 
-    # Round 34: thread target_lang so a pre-r34 DB gets v1→v2 backfill
-    # on load and new entries (Stage 4 writeback) are stamped consistently.
-    translation_db = TranslationDB(
-        output_dir / "translation_db.json",
-        default_language=target_lang,
-    )
+    # Round 52 C4 BREAKING: default_language= retired (zh-only DB schema).
+    translation_db = TranslationDB(output_dir / "translation_db.json")
     translation_db.load()
 
     # 构建 system prompt（带引擎 addon）
@@ -277,7 +272,6 @@ def run_generic_pipeline(engine, args) -> None:
     system_prompt = build_system_prompt(
         genre=genre,
         glossary_text=glossary_text,
-        lang_config=lang_config,
         engine_profile=profile,
     )
 
@@ -290,26 +284,16 @@ def run_generic_pipeline(engine, args) -> None:
     completed_chunks = _load_progress(progress_path)
 
     if translation_db.entries:
-        # Round 34: resume index now keyed by (file, original, language) so
-        # a multi-language DB (r34+) doesn't cross-resume — e.g. a zh run
-        # must not pick up a ja translation for the same (file, original)
-        # pair.  Lookup tries current target_lang first, then falls back
-        # to the None bucket for legacy v1-era entries without a language
-        # field (preserves round-33 resume behaviour on pre-r34 DBs).
-        db_index: dict[tuple[str, str, object], str] = {}
+        # Round 52 C4 BREAKING: language-keyed resume retired (zh-only).
+        # Index keyed by (file, original) only.
+        db_index: dict[tuple[str, str], str] = {}
         for entry in translation_db.entries:
-            lang = entry.get("language")
-            if not isinstance(lang, str) or not lang:
-                lang = None
-            key = (entry.get("file", ""), entry.get("original", ""), lang)
+            key = (entry.get("file", ""), entry.get("original", ""))
             if entry.get("translation") and entry.get("status") == "ok":
                 db_index[key] = entry["translation"]
         restored = 0
         for u in units:
-            trans = db_index.get((u.file_path, u.original, target_lang))
-            if trans is None:
-                # Fall back to legacy None-bucket entries (pre-r34 DBs).
-                trans = db_index.get((u.file_path, u.original, None))
+            trans = db_index.get((u.file_path, u.original))
             if trans:
                 u.translation = trans
                 u.status = "translated"
@@ -360,13 +344,10 @@ def run_generic_pipeline(engine, args) -> None:
                         if val and isinstance(val, str):
                             t[key] = restore_placeholders(val, ph_mapping)
 
-            # 逐条校验（Round 42: pass lang_config so non-zh targets
-            # are validated against the correct alias field)
+            # 逐条校验（Round 52 C4: lang_config kwarg retired, zh-only）
             valid = []
             for t in translations:
-                warns = check_response_item(
-                    t, placeholder_re=ph_re, lang_config=lang_config,
-                )
+                warns = check_response_item(t, placeholder_re=ph_re)
                 if not warns:
                     valid.append(t)
 

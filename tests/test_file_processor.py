@@ -434,20 +434,6 @@ def test_replace_string_escaped_quotes():
     print(f"[OK] replace_string_escaped_quotes (result={'matched' if result else 'no_match'})")
 
 
-def test_validator_lang_config():
-    """validator W442 使用 lang_config 参数化"""
-    from core.lang_config import get_language_config
-    # 日语 validator：日文占比低应触发 W442
-    ja = get_language_config('ja')
-    orig = 'x' * 30 + '\n' + '"' + 'A' * 25 + '"'
-    trans = 'x' * 30 + '\n' + '"' + 'B' * 25 + '"'  # 纯英文译文
-    issues = file_processor.validate_translation(orig, trans, 'test.rpy', lang_config=ja)
-    w442 = [i for i in issues if i.get('code') == 'W442_SUSPECT_ENGLISH_OUTPUT']
-    assert len(w442) > 0, "W442 should trigger for pure English when target is Japanese"
-    assert '日本語' in w442[0]['message']
-    print("[OK] validator_lang_config")
-
-
 def test_fix_chinese_placeholder_drift():
     """Round 31 Tier A-2: AI-introduced Chinese placeholder variants are
     normalised back to canonical Ren'Py ``[name]`` syntax.
@@ -540,7 +526,6 @@ def run_all() -> int:
         test_protect_control_tags,
         test_replace_string_prefix_strip,
         test_replace_string_escaped_quotes,
-        test_validator_lang_config,
         # Round 31 Tier A-2: placeholder drift fix (A-1 UI whitelist + r32
         # configurable + r44 oversize cap moved to tests/test_ui_whitelist.py
         # in round 45 to bring this file back under the 800-line soft limit)

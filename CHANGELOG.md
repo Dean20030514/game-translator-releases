@@ -4,11 +4,11 @@
 
 ## 最近 5 轮（仅高亮，详细见归档）
 
+- **Round 52** — **scope reduction BREAKING**：(C1) HANDOFF push-status drift checker；(C2) build.py CI smoke + GUI architectural decision；(C3 BREAKING) retire importlib plugin loader（subprocess 沙箱成唯一模式）；**(C4 BREAKING) drop multi-target language support**（删 `core/lang_config.py` + `--target-lang` flag + multi-lang outer loop + 5 层 contract + DB v2 schema + runtime-hook v2 schema + 4 测试文件 + `tools/merge_translations_v2.py`；目标语言固定 zh；存量 v2 DB 用 `scripts/migrate_db_v2_to_v1.py` 迁移）
+- **Round 51** — GitHub 仓库重命名 sync `Renpy-Translator` → `Multi-Engine-Game-Translator`；4 contract tests pin repo URL + logger namespace；zero-debt closure 模式第二次执行
 - **Round 50** — Zero-debt closure 模式确立（所有 audit findings 同轮 fix，no tier exemption）；r49 6 项 deferred 全 closure；2 latent fixture bug 同轮 fix；CI Mock target consistency check
 - **Round 49** — Drift prevention 工具自动化（pre-commit + verify_docs_claims --fast/--full + VERIFIED-CLAIMS 单一声称源）；file_safety helper 推广 26 sites / 12 modules 全 TOCTOU MITIGATED
 - **Round 48** — TOCTOU helper 抽取到 core/file_safety.py；首次 security CRITICAL 同轮 fix；audit-tail 补拆 800 行越限测试文件
-- **Round 47** — TOCTOU 升级 ACCEPTABLE doc → MITIGATED code（csv_engine fstat 二次校验）；test_translation_state 拆 progress_tracker_language
-- **Round 46** — install_hooks 启用；test_runtime_hook 拆 v2_schema；真实桌面 GUI smoke via computer-use（5 轮积压闭合）
 
 ## 阶段总览
 
@@ -26,6 +26,8 @@
 | 阶段七 | r46-r48 | Auto Mode 综合执行（GUI smoke + TOCTOU helper） |
 | 阶段八 | r49 | Drift Prevention 自动化（4 项工具 + 26 sites MITIGATED） |
 | 阶段九 | r50 | Zero-Debt Closure 模式确立 |
+| 阶段十 | r51 | GitHub 仓库重命名 sync + 4 contract tests pin |
+| 阶段十一 | r52 | **Scope reduction BREAKING**（retire importlib plugin + drop multi-target language；只保留 zh 目标） |
 
 ## 归档索引
 

@@ -82,25 +82,17 @@ def _translate_one_tl_chunk(
     kept_items: dict[str, str] = {}
     dropped = 0
     warnings: list[str] = []
-    # Round 39 / r42 M2 phase-4: resolve the target-language translation
-    # field via ``lang_config.field_aliases`` when a non-default
-    # lang_config is present on ctx.  r42 also pushed this awareness into
-    # ``check_response_item`` itself (``lang_config=`` kwarg) so the
-    # per-item validator no longer hard-codes the ``"zh"`` read.  Falls
-    # back to the literal ``"zh"`` field for backward compat when
-    # lang_config is None or the target is zh/zh-tw.
-    from core.lang_config import resolve_translation_field as _resolve_field
+    # Round 52 C4 BREAKING: lang_config / resolve_translation_field
+    # retired.  Only zh target supported; AI response reader hard-coded
+    # to ``t.get("zh", "")``.
     for t in translations:
-        item_w = check_response_item(t, lang_config=ctx.lang_config)
+        item_w = check_response_item(t)
         if item_w:
             dropped += 1
             warnings.extend(f"[CHECK-DROPPED] {w}" for w in item_w)
         else:
             tid = t.get("id", "")
-            if ctx.lang_config is not None:
-                zh = _resolve_field(t, ctx.lang_config) or ""
-            else:
-                zh = t.get("zh", "")
+            zh = t.get("zh", "")
             if tid and zh:
                 kept_items[tid] = zh
     return rel_path, ci, kept_items, dropped, warnings
@@ -181,31 +173,24 @@ def run_tl_pipeline(args: argparse.Namespace) -> None:
                 continue
             glossary.load_dict(dict_path)
 
-    # Round 35 C1: language namespace on progress keys (tl-mode prompt
-    # is Chinese-only so in practice always "zh" today; keeps symmetry).
-    _progress_lang = getattr(args, "target_lang", "zh") or "zh"
-    progress = ProgressTracker(output_dir / "tl_progress.json", language=_progress_lang)
+    # Round 52 C4 BREAKING: language-aware ProgressTracker namespace
+    # retired (zh-only). language= kwarg removed.
+    progress = ProgressTracker(output_dir / "tl_progress.json")
     if not args.resume and progress.data.get("completed_files"):
         progress.data = {"completed_files": [], "completed_chunks": {}, "stats": {}}
         progress.save()
 
     db_path = output_dir / "translation_db.json"
-    # Round 34: thread target_lang (v1→v2 backfill + new-entry stamp).
-    _db_lang = getattr(args, "target_lang", "zh") or "zh"
-    translation_db = TranslationDB(db_path, default_language=_db_lang)
+    # Round 52 C4 BREAKING: TranslationDB v2 schema retired.
+    # default_language= kwarg removed; entries have no language field.
+    translation_db = TranslationDB(db_path)
     translation_db.load()
     run_id = time.strftime("%Y-%m-%dT%H:%M:%S", time.gmtime())
 
-    # Round 39: pass lang_config through so non-zh targets (ja / ko / etc.)
-    # get the English generic tl-mode template with lang_config fields
-    # substituted in.  ``None`` / zh / zh-tw still use the Chinese template
-    # byte-identical to r38 for stability.
-    _lang_cfg = getattr(args, "lang_config", None)
     system_prompt = build_tl_system_prompt(
         glossary_text=glossary.to_prompt_text(),
         genre=args.genre,
         cot=getattr(args, 'cot', False),
-        lang_config=_lang_cfg,
     )
 
     # ── 1b. 自动回填不需要 AI 翻译的条目（纯空白/纯标点原文） ──
@@ -311,7 +296,6 @@ def run_tl_pipeline(args: argparse.Namespace) -> None:
         client=client,
         system_prompt=system_prompt,
         rel_path="",
-        lang_config=_lang_cfg,  # Round 39: needed by _translate_chunk response reader
     )
 
     with concurrent.futures.ThreadPoolExecutor(max_workers=workers) as pool:

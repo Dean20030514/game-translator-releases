@@ -38,7 +38,7 @@ main.py (CLI 入口) → engines.resolve_engine(args.engine).run(args)
        ├── api_client.py + api_plugin.py
        ├── prompts.py / glossary.py
        ├── translation_db.py / translation_utils.py
-       ├── config.py / lang_config.py / font_patch.py
+       ├── config.py / font_patch.py
        ├── http_pool.py        HTTPS 线程本地连接池 (~90s 节省)
        ├── pickle_safe.py      白名单 SafeUnpickler
        ├── file_safety.py      TOCTOU 防御 (fstat 二次校验)
@@ -125,9 +125,8 @@ retranslate_file() [translators/retranslator.py]
   │   └─ 排除 auto/hover/idle 定义、image 路径、screen 布局属性
   ├─ build_retranslate_chunks()  每 chunk ≤ 20 漏翻行 + ±3 上下文，合并重叠
   ├─ 专用 retranslate prompt（>>> 标记行必须翻译，上下文仅参考）
-  │   └─ build_retranslate_system_prompt(lang_config=) 按 code 分路：
-  │       zh / zh-tw → 中文模板 byte-identical
-  │       非 zh → generic 英文模板（round 39 起 ja/ko 端到端可用）
+  │   └─ build_retranslate_system_prompt() 中文模板（round 52 C4 BREAKING：
+  │       multi-target language path 已 retired，hardcoded zh-only）
   ├─ 原地补翻，.bak 自动备份（不覆盖已有）
   └─ 独立进度文件 retranslate_progress.json
 ```
@@ -301,25 +300,16 @@ protect_placeholders()
 ### 6.2 返回后校验（ResponseChecker）
 
 ```
-check_response_item(item, placeholder_re=None, lang_config=None):
+check_response_item(item, placeholder_re=None):
   ├─ 占位符集合一致性（原文 vs 译文）
-  ├─ 原文非空 + 译文非空
-  │   ├─ lang_config=None: 硬编码读 item["zh"]
-  │   └─ lang_config=<LanguageConfig>:  (round 42 M2 phase-4 per-language)
-  │        resolve_translation_field(item, lang_config)
-  │        按 alias 链查 item[alias]；fallback translation/target/trans
+  ├─ 原文非空 + 译文非空（硬编码读 item["zh"]）
   └─ 不通过 → status="checker_dropped"，保留原文
 
 check_response_chunk():
   └─ 条数一致性（启发式 _count_translatable_lines_in_chunk）
 ```
 
-**多语言契约（5 层）**：
-- r39 prompt per-language（zh 中文 / 非 zh generic 英文）
-- r41 alias-read（响应字段 alias 链查找）
-- r42 checker per-language（`lang_config` kwarg + deferred import 保 layering）
-- r43-r44 zh-tw 隔离（`field_aliases = ["zh-tw", "zh_tw", "traditional_chinese"]` **刻意不含 bare "zh"**）
-- generic fallback（`["translation", "target", "trans"]`）
+**Round 52 C4 BREAKING**：r35-r48 多语言 5 层 contract（prompt per-lang / alias-read / checker per-lang / zh-tw 隔离 / generic fallback）已**完全删除**，目标语言固定 zh，response 字段名硬编码 `"zh"`。`core/lang_config.py` 文件已删除，`resolve_translation_field()` 已删除。
 
 ### 6.3 回写后校验（`validate_translation`，50+ 项）
 
@@ -399,7 +389,7 @@ tests/
 ├─ test_api_client.py       core.api_client (APIConfig/UsageStats/RateLimiter/JSON 解析/定价/HTTP)
 ├─ test_file_processor.py   splitter / checker / patcher / validator
 ├─ test_translators.py      direct chunk / tl_parser / retranslator / screen
-├─ test_glossary_prompts_config.py   glossary / locked_terms / prompts / config / lang_config
+├─ test_glossary_prompts_config.py   glossary / locked_terms / prompts / config
 ├─ test_translation_state.py         ProgressTracker / TranslationDB / dedup
 ├─ test_engines.py + test_engines_rpgmaker.py + test_csv_engine.py
 ├─ test_runtime_hook.py + test_runtime_hook_filter.py + test_runtime_hook_v2_schema.py
@@ -439,7 +429,7 @@ tests/
 >
 > `tests/test_all.py` 仅聚合 6 个 focused suites（见 `tests/test_all.py` 顶部 docstring 列表）— 覆盖 core/translators/file_processor/glossary/state/runtime_hook 主路径，是 ~5s 的快通道。
 >
-> 全量 `tests_total`（见 `HANDOFF.md` `VERIFIED-CLAIMS` 块，~4× meta-runner）含 engine / 多语言 / RPA / rpyc / editor / pipeline / file_safety / 端到端集成等 ~29 个独立 suite，**只在 CI 或本地分别运行各独立 suite 时跑齐**。pre-commit hook 用 meta-runner（速度优先），不代表零回归 — 真实零回归看 CI 6 jobs 全绿。
+> 全量 `tests_total`（见 `HANDOFF.md` `VERIFIED-CLAIMS` 块，~3× meta-runner）含 engine / RPA / rpyc / editor / pipeline / file_safety / 端到端集成等独立 suite，**只在 CI 或本地分别运行各独立 suite 时跑齐**。pre-commit hook 用 meta-runner（速度优先），不代表零回归 — 真实零回归看 CI 6 jobs 全绿。
 
 **本地快速验证**：
 ```bash

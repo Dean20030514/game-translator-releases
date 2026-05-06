@@ -136,8 +136,9 @@ def run_main(
         cmd += ["--exclude", *excludes]
     if copy_assets:
         cmd.append("--copy-assets")
-    if target_lang:
-        cmd += ["--target-lang", target_lang]
+    # Round 52 C4 BREAKING: --target-lang removed from main.py; argument
+    # ``target_lang`` kept for backward-compat signature but ignored.
+    _ = target_lang
     if tl_mode:
         cmd += ["--tl-mode", "--tl-lang", tl_lang]
 
