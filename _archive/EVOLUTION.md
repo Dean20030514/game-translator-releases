@@ -180,9 +180,31 @@
 
 **连续 13 轮 0 CRITICAL correctness 保持**（r35-r53）。
 
+## 阶段十三（r54）— Backlog 重新评估 + 14th 0-CRITICAL Streak
+
+单 docs sync commit，零代码变更：
+
+- **本轮触发**：r53 末用户重读 HANDOFF backlog 后质疑 #1 (A-H-3 Medium) + #2 (A-H-3 Deep) 的真实价值。澄清后用户要求重新评估**所有**待办项。
+- **评估标准**：用 r52 起"减法 + 聚焦"原则（CLAUDE.md 第 8 原则最小改动 + 第 10 原则零欠账闭合），按 真实用户价值 / 实施成本 / 架构契约阻塞 / 法律与维护风险 综合判断 ROI。
+- **结论**：r53 末 12 项 actionable backlog 中 8 项是负 ROI 或已被现有方案间接覆盖，**应 retire 到 architectural decision**。剩余 actionable 缩减到 3 项（Unity XUnity / Godot / Kirikiri+TyranoBuilder），按 ROI 排序。
+- **r54 retire 8 项**（详见 [HANDOFF.md "Round 54 retire"](../HANDOFF.md) + [docs/REFERENCE.md §13.2 / §13.4](../docs/REFERENCE.md)）：
+  - **A-H-3 Medium**（让 Ren'Py 走 generic_pipeline）—— r52 C4 后 Ren'Py 是 zh-only 单一目标，"统一抽象"用户场景消失；generic_pipeline 反而是从 tl-mode 派生的，反向接入是绕路；99.991% 翻译成功率 + 14 轮 0 CRITICAL streak 全在专有管线下达成
+  - **A-H-3 Deep**（退役 DialogueEntry）—— 3 个 Ren'Py 特有字段搬到 metadata 字典只是换位置，没真正统一；attribute access → dict lookup 是降级；75+ 引用 / 11 文件 / 删除无回滚
+  - **RPG Maker Plugin Commands (356)**—— 真实覆盖 ~25% × ~10% = ~2.5% 用户场景；按需启动模式（用户报告具体游戏样本时再开新轮）比 standing backlog 合理
+  - **加密 RPA / RGSS 归档**—— 涉及反编译加密算法（破解 DRM），法律灰色地带；用户群体小；非加密版本已支持
+  - **RPG Maker VX/Ace**（P1）—— 需 `rubymarshal` 第三方依赖，违反零依赖核心契约（CLAUDE.md 第 9 原则）
+  - **Wolf RPG Editor**（P1）—— 走 WolfTrans 导出 CSV → 已通过 CSVEngine 间接支持，重复造轮子
+  - **Unreal Engine**（P3）—— uasset 工具链极复杂，主流 Unreal 走专用 LocText 工具，不是项目定位
+  - **HTML5 / 浏览器**（P3）—— HTML5 游戏极少做汉化（往往 web app i18n 已有现成方案），用户场景虚
+- **Actionable backlog 12 → 3**（剩 Unity XUnity / Godot / Kirikiri+TyranoBuilder）。
+- **新增 backlog 评估纪律**（写入 HANDOFF Round 55 关键约束）：r54 retired 8 项不应被无证据重新打开，重新打开必须先有具体用户场景证据 + plan-first 论证 ROI 翻转。
+- **数字 unchanged**：tests_total / test_files / ci_steps / assertion_points 保持 r53 末数值（467 / 32 / 34 / 593）；r54 是纯文档轮，未引入新测试 / 新 CI step / 新源代码。
+
+**连续 14 轮 0 CRITICAL correctness 保持**（r35-r54）。
+
 ---
 
-## 累积技术资产（r1-r53 视角）
+## 累积技术资产（r1-r54 视角）
 
 ### 翻译能力
 - 三种 Ren'Py 翻译模式（direct / tl / retranslate） + screen 补充
