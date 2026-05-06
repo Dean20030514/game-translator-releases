@@ -160,9 +160,29 @@
 
 **连续 12 轮 0 CRITICAL correctness 保持**（r35-r52）。
 
+## 阶段十二（r53）— W1-W4 闭合 + 6 监控项重新评估 + 13th 0-CRITICAL Streak
+
+11 phases（W1 + W2 + W3 + W4 + 6 monitor items + docs sync），新增 1 模块 + 2 测试文件 + 36 单元测试：
+
+- **本轮触发**：r52 末用户决策把 W1-W4 informational watchlist 升级到 r53 actionable backlog；同时要求重新评估 6 个监控项（不再被动留作 watchlist）。
+- **W1 — retry 阶段并发化 + per-chunk progress logging**（`translators/_tl_retry.py` 新模块 174 行 + `tl_mode.py:463-516` 替换为 `run_retry_stage()` 调用）：ThreadPoolExecutor (max_workers = `args.workers`) + per-chunk `[TL-RETRY n/N]` log + 自适应 chunk size（≤50 entries → 5/chunk; >50 → 10/chunk）+ cross-file 任务列表（一个慢文件不阻塞其他文件）。17 单元测试覆盖 (drift detection 边界 / chunk size adaptation / progress log 输出 / per-thread r_kept lock 安全)。
+- **W2 — JSON mis-escape layer-7 char-walker repair**（`core/api_client.py::_extract_json_array` + `_repair_unescaped_quotes_in_strings`）：在 6 级结构降级链之后加 layer 7，char-by-char 跟踪 string scope，遇到 stray `"`（next non-whitespace 不是 `,]}:`）自动 escape 为 `\"`，然后 retry layer 1 + layer 3。pathological 输入仍可能 fail，但典型 LLM mis-escape pattern (嵌套引号 / 中文标点边界) 全恢复。5 单元测试 (4 mis-escape pattern + 1 helper boundary)。
+- **W3 — LLM ID drift detection (layer 6)**：`detect_id_drift(expected_ids, returned_ids, threshold=0.10)` 计算 symmetric-difference / |expected| 比例，> 阈值时 warn (drift_count = missing + extra)。主 stage `_translate_one_tl_chunk` 加 returned_ids 收集 + drift warning 注入 warnings list；retry stage 在 per-chunk callback 直接 log `[W3-DRIFT n%]`。修正 HANDOFF stale "4 层 fallback" 表述（r31 起就是 5 层 precise → strip → token → escape → tagstripped；W3 在其上加 layer 6 ID drift detection 是 observation-only，从不 abort chunk）。
+- **W4 — direct-mode English-only 文档化**（路径 b 最小改动）：`translators/direct.py::run_pipeline` 启动加 INFO log 提示限制；`translators/renpy_text_utils.py::MIN_ENGLISH_CHARS_FOR_UNTRANSLATED` 常量加 docstring；CLAUDE.md "已知限制" + README + docs/REFERENCE 全部交叉引用。**不加 `--source-lang` CLI flag** — 避免功能蔓延（项目第 8 原则最小改动）。
+- **监控 #1 Pickle 红队 audit verified safe**（`tests/test_pickle_safe_redteam.py` 8 测试）：构造 4 个直接调用 gadget (os.system / subprocess.Popen / eval / exec) + 1 个 `_codecs.encode` chain attack 尝试 + 1 个 `copyreg._reconstructor` GadgetChain (with `os.system` as base) + 2 个 boundary control (legitimate payload / arbitrary class deny)。结果：直接 gadget 全部 raise UnpicklingError；`_codecs.encode` 仅返回 inert bytes/str（passive transformation，无可执行 callable）；`_reconstructor` 在 base callable resolve 阶段被 SafeUnpickler 拒绝，链断。**升级**：监控 #1 从 informational watchlist → architectural decision (verified safe)。
+- **监控 #2 HTTP 64KB 精度偏差降至 1B**（`core/http_pool.py::read_bounded`）：`chunk = readable.read(min(_READ_CHUNK_SIZE, limit - total + 1))`，+1 byte 用作 overshoot detector，触发 raise 时 `total = limit + 1` 最大偏差 1 byte。fast path（数据 << limit）保持 64 KB chunk size。3 单元测试覆盖 (precision at cap / exact limit / limit + 1 byte raises)。
+- **监控 #3 TOCTOU fstat race retire to architectural decision**：microsecond-level OS-atomic 边界已是当前实现下限；进一步缩小依赖 OS-level FD-ops 实现细节（fstat 内部 syscall 时序），无 actionable improvement path。
+- **监控 #4 symlink path-swap mitigation**（`main.py::_maybe_warn_on_symlink` + `--allow-symlink` flag）：`--game-dir` / `--config` 是 symlink 时输出 warning（非阻断），`--allow-symlink` 抑制（NAS / 挂载场景）。本地 single-user 工具无 realistic exploit vector，warning 仅作审计提示。3 单元测试 (warn unflagged / allow suppresses / regular path no-warn)。
+- **监控 #5 Logger namespace retire to architectural decision**：r51 4 contract tests pin 17 sites `getLogger("multi_engine_translator")` 已充分；如未来引入 logging filter / sink / metric pipeline，需 reconsider。
+- **监控 #6 GUI 自动化 maintained as architectural decision**：r53 重新评估维持原决策（tkinter 跨平台 headless 需违反零依赖契约 + ROI 低 + 跨平台覆盖不全）。
+- **数字增量**：tests_total 431 → 467 (+36); test_files 30 → 32 (+2: `test_tl_retry.py` + `test_pickle_safe_redteam.py`); ci_steps 34 unchanged; assertion_points 557 → 593 (+36, 跟随 tests_total)。
+- **9 hard contracts 累积到 12**（CLAUDE.md 维护规则 +3）：`tl_mode.py` retry 必须并发 / LLM ID drift detection layer-6 必须保留 / Pickle 白名单不得放宽（修改前必跑红队 audit）。
+
+**连续 13 轮 0 CRITICAL correctness 保持**（r35-r53）。
+
 ---
 
-## 累积技术资产（r1-r52 视角）
+## 累积技术资产（r1-r53 视角）
 
 ### 翻译能力
 - 三种 Ren'Py 翻译模式（direct / tl / retranslate） + screen 补充
@@ -189,12 +209,17 @@
 - Mock target consistency CI guard（防 stale mock trap CLASS）
 - Repo rename consistency CI guard（pin 自身 repo URL refs + logger namespace + 上游归属反向 exhaustiveness）
 - **build.py CI smoke**（r52 C2：import + --clean-only）
+- **Pickle 红队 audit 8/8 verified**（r53 监控 #1：os.system / subprocess.Popen / eval / exec / `_codecs.encode` chain / `_reconstructor` GadgetChain / 默认拒绝 / legitimate roundtrip）
+- **HTTP 响应体精度 1 B**（r53 监控 #2：64 KB chunk → adaptive `min(_READ_CHUNK_SIZE, limit - total + 1)`）
+- **retry stage 并发 + per-chunk progress log**（r53 W1：ThreadPoolExecutor + 自适应 chunk size）
+- **LLM ID drift detection layer-6**（r53 W3：`detect_id_drift()` 在主 stage + retry stage 注入）
+- **JSON mis-escape layer-7 char-walker repair**（r53 W2：6 级结构降级链之后 + char-by-char re-escape）
 
-### 文档体系（r52 末）
+### 文档体系（r53 末）
 - 根目录：`README.md` / `CLAUDE.md` (= `.cursorrules`) / `HANDOFF.md` / `CHANGELOG.md` / `CONTRIBUTING.md` / `SECURITY.md`
 - `docs/`：`ARCHITECTURE.md`（架构 + 数据流 + 校验链 + 引擎指南 + 测试体系）+ `REFERENCE.md`（常量 + 错误码 + 路线图）
 - `_archive/`：本文件 + `CHANGELOG_FULL.md`（r1-r45 总览 + r19/r43 正文）+ `CHANGELOG_RECENT_r52.md` + `TEST_PLAN_r50.md`
-- `scripts/`：`migrate_db_v2_to_v1.py`（r52 C4 v2 → v1 DB 迁移工具）
+- `scripts/`：`migrate_db_v2_to_v1.py`（r52 C4 v2 → v1 DB 迁移工具）+ `verify_docs_claims.py` (r49+) + `verify_workflow.py` (r43+) + `install_hooks.sh`
 
 ---
 
@@ -203,3 +228,8 @@
 最初 9 大开发原则在 r1-r10 沉淀，r41-r49 因 audit-tail incidents 累计 4 项工具化 prevention，r50 起加入第 10 条：
 
 10. **零欠账闭合（zero-debt closure）** — 所有 audit findings 必须同轮 fix，无法 fix 的归 architectural decision 显式文档化。
+
+r53 完成时累积 12 hard contracts（r52 9 项 + r53 +3）：
+- r53 W1：retry 必须并发（不可重新引入 sequential）
+- r53 W3：LLM ID drift detection layer-6 必须保留
+- r53 监控 #1：Pickle 白名单不得放宽（修改前必跑红队 audit）

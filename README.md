@@ -42,12 +42,16 @@ python main.py --game-dir "E:\Games\MyGame" --provider xai --dry-run
 
 ### 翻译模式选择
 
-| 模式 | CLI | 适用 | 回写精度 |
-|------|-----|------|---------|
-| direct-mode | 默认 | 无 SDK / 小项目一次到位 | 文本匹配（~96%） |
-| **tl-mode** | `--tl-mode --tl-lang chinese` | **大项目首选**（需先用 Ren'Py SDK 生成 tl/） | 行号精确（~99.97%） |
-| retranslate | `--retranslate` | 任何模式后扫尾补翻 | 原地替换 |
-| screen | `--tl-screen` | tl 框架未覆盖的 UI 文本（与 tl-mode 联用） | 原地替换源文件（自动 .bak） |
+| 模式 | CLI | 适用 | 回写精度 | 源语言假设 |
+|------|-----|------|---------|-----------|
+| direct-mode | 默认 | 无 SDK / 小项目一次到位 | 文本匹配（~96%） | **English-only**（W4） |
+| **tl-mode** | `--tl-mode --tl-lang chinese` | **大项目首选**（需先用 Ren'Py SDK 生成 tl/） | 行号精确（~99.97%） | 任意源（LLM 自动识别） |
+| retranslate | `--retranslate` | 任何模式后扫尾补翻 | 原地替换 | English-only（同 direct） |
+| screen | `--tl-screen` | tl 框架未覆盖的 UI 文本（与 tl-mode 联用） | 原地替换源文件（自动 .bak） | 任意源 |
+
+#### Source language assumption（r53 W4）
+
+`direct-mode` / `retranslate` 的漏翻检测硬编码英文假设（`MIN_ENGLISH_CHARS_FOR_UNTRANSLATED = 12` 仅计 a-z 字符），所以**仅适用于英文源游戏**。非英文源游戏（日文 / 韩文 / 繁中 / 俄文 / 等）请改用 `tl-mode`，它扫描 Ren'Py 自己生成的 `tl/<lang>/` 空槽位，源语言 agnostic。direct-mode 启动时会输出 INFO log 提示此限制。
 
 ### 一键流水线
 
@@ -157,12 +161,22 @@ python main.py --game-dir "E:\Games\MyGame" --provider xai --dry-run
 
 ### Mode Selection
 
-| Mode | CLI | Use case | Writeback precision |
-|------|-----|----------|---------------------|
-| direct-mode | default | No SDK / small projects one-shot | text match (~96%) |
-| **tl-mode** | `--tl-mode --tl-lang chinese` | **Large projects** (Ren'Py SDK generates `tl/` first) | line-precise (~99.97%) |
-| retranslate | `--retranslate` | Catch-up after any mode | in-place |
-| screen | `--tl-screen` | Bare UI text the tl framework misses | in-place (auto `.bak`) |
+| Mode | CLI | Use case | Writeback precision | Source language |
+|------|-----|----------|---------------------|-----------------|
+| direct-mode | default | No SDK / small projects one-shot | text match (~96%) | **English-only** (W4) |
+| **tl-mode** | `--tl-mode --tl-lang chinese` | **Large projects** (Ren'Py SDK generates `tl/` first) | line-precise (~99.97%) | any source (LLM auto-detects) |
+| retranslate | `--retranslate` | Catch-up after any mode | in-place | English-only (same as direct) |
+| screen | `--tl-screen` | Bare UI text the tl framework misses | in-place (auto `.bak`) | any source |
+
+#### Source language assumption (r53 W4)
+
+`direct-mode` / `retranslate` hard-code an English-source assumption — the
+leakage detector at `translators/renpy_text_utils.py` counts only ASCII
+letters (`MIN_ENGLISH_CHARS_FOR_UNTRANSLATED = 12`). Non-English source
+games (Japanese / Korean / Traditional Chinese / Russian / etc.) should
+use `tl-mode`, which scans Ren'Py's own `tl/<lang>/` directory slots and
+is source-language agnostic. `direct-mode` emits an INFO log on startup
+to remind you of this limitation.
 
 ### One-Click Pipeline
 

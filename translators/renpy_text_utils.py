@@ -18,7 +18,12 @@ from file_processor import read_file, SKIP_FILES_FOR_TRANSLATION
 # ============================================================
 
 MIN_UNTRANSLATED_TEXT_LENGTH = 20      # 疑似漏翻最小文本长度
-MIN_ENGLISH_CHARS_FOR_UNTRANSLATED = 12  # 疑似漏翻最小英文字符数
+# Round 53 W4: ``MIN_ENGLISH_CHARS_FOR_UNTRANSLATED`` hard-codes the
+# leakage-detection rule to ASCII letters, which makes direct-mode
+# implicitly English-source-only. Non-English source games (ja/ko/etc)
+# should use tl-mode (which is source-language agnostic). See
+# ``CLAUDE.md`` §"已知限制" + ``README.md`` §source language assumption.
+MIN_ENGLISH_CHARS_FOR_UNTRANSLATED = 12  # 疑似漏翻最小英文字符数 (English-source only)
 
 
 # ============================================================

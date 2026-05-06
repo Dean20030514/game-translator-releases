@@ -4,11 +4,11 @@
 
 ## 最近 5 轮（仅高亮，详细见归档）
 
+- **Round 53** — **W1-W4 主线全闭合 + 6 监控项重新评估**：(W1) `tl_mode.py` retry 拆到新模块 `translators/_tl_retry.py` (174 行) + ThreadPoolExecutor + per-chunk progress log + 自适应 chunk size；(W2) `core/api_client.py::_extract_json_array` 加 layer-7 char-walker `_repair_unescaped_quotes_in_strings` 修字符串值内未 escape `"`；(W3) layer-6 LLM ID drift detection (`detect_id_drift()` 主 stage + retry stage 各注入；symmetric-difference > 10% warn)；(W4) direct-mode English-only 文档化 (启动 INFO log + 常量 docstring + README + CLAUDE.md)；监控 #1 pickle 白名单 8/8 红队 verified safe；监控 #2 HTTP 64 KB 精度偏差降至 1 B；监控 #3+#5+#6 retire to architectural decision；监控 #4 symlink CLI warning + `--allow-symlink` flag。Plus 36 单元测试新增 (17 W1+W3 / 5 W2 / 3 #2 / 8 #1 / 3 #4)。
 - **Round 52** — **scope reduction BREAKING**：(C1) HANDOFF push-status drift checker；(C2) build.py CI smoke + GUI architectural decision；(C3 BREAKING) retire importlib plugin loader（subprocess 沙箱成唯一模式）；**(C4 BREAKING) drop multi-target language support**（删 `core/lang_config.py` + `--target-lang` flag + multi-lang outer loop + 5 层 contract + DB v2 schema + runtime-hook v2 schema + 4 测试文件 + `tools/merge_translations_v2.py`；目标语言固定 zh；存量 v2 DB 用 `scripts/migrate_db_v2_to_v1.py` 迁移）
 - **Round 51** — GitHub 仓库重命名 sync `Renpy-Translator` → `Multi-Engine-Game-Translator`；4 contract tests pin repo URL + logger namespace；zero-debt closure 模式第二次执行
 - **Round 50** — Zero-debt closure 模式确立（所有 audit findings 同轮 fix，no tier exemption）；r49 6 项 deferred 全 closure；2 latent fixture bug 同轮 fix；CI Mock target consistency check
 - **Round 49** — Drift prevention 工具自动化（pre-commit + verify_docs_claims --fast/--full + VERIFIED-CLAIMS 单一声称源）；file_safety helper 推广 26 sites / 12 modules 全 TOCTOU MITIGATED
-- **Round 48** — TOCTOU helper 抽取到 core/file_safety.py；首次 security CRITICAL 同轮 fix；audit-tail 补拆 800 行越限测试文件
 
 ## 阶段总览
 
@@ -28,6 +28,7 @@
 | 阶段九 | r50 | Zero-Debt Closure 模式确立 |
 | 阶段十 | r51 | GitHub 仓库重命名 sync + 4 contract tests pin |
 | 阶段十一 | r52 | **Scope reduction BREAKING**（retire importlib plugin + drop multi-target language；只保留 zh 目标） |
+| 阶段十二 | r53 | **W1-W4 主线 + 6 监控项重新评估**（retry 并发化 + JSON escape-fix + ID drift detection + direct-mode 文档化；pickle 红队 verified + HTTP 精度收紧 + symlink mitigation + 3 项 retire） |
 
 ## 归档索引
 

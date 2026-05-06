@@ -630,5 +630,85 @@ class APIClient:
             if results:
                 return results
 
+        # 7. Round 53 W2: escape-fix preprocessing for LLM mis-escape.
+        #    LLMs occasionally emit unescaped `"` inside string values
+        #    (e.g. ``{"zh": "他说"你好""}`` where the inner quotes should
+        #    be ``\"``). Layers 1-6 are structural — they cannot recover
+        #    from a tokenizer break inside a value. Layer 7 char-walks
+        #    the text, escapes stray quotes inside string scopes, then
+        #    re-runs layers 1 + 3.
+        repaired = _repair_unescaped_quotes_in_strings(text)
+        if repaired != text:
+            try:
+                result = json.loads(repaired)
+                if isinstance(result, list):
+                    return result
+            except json.JSONDecodeError:
+                pass
+            r_start = repaired.find('[')
+            r_end = repaired.rfind(']')
+            if r_start != -1 and r_end > r_start:
+                try:
+                    result = json.loads(repaired[r_start:r_end + 1])
+                    if isinstance(result, list):
+                        return result
+                except json.JSONDecodeError:
+                    pass
+
         logger.error(f"无法解析 AI 响应为 JSON 数组，响应前200字符: {text[:200]}")
         return []
+
+
+def _repair_unescaped_quotes_in_strings(text: str) -> str:
+    """Round 53 W2: escape stray `"` inside JSON string values.
+
+    LLMs occasionally emit JSON like ``{"zh": "他说"你好""}`` where the
+    inner ``"`` should be ``\\"``. The 6-layer structural fallback chain
+    in :func:`APIClient._parse_json_response` cannot recover from this
+    because the tokenizer breaks inside a value. This helper walks the
+    text char-by-char, tracking string-scope state, and escapes any
+    ``"`` that does not look like a string boundary.
+
+    A ``"`` is treated as a closing string boundary when the next non-
+    whitespace character is one of ``,]}:``. Otherwise it is escaped.
+    Properly skips over backslash-escape sequences (``\\X`` always
+    passes through unchanged when inside a string).
+
+    Returns the repaired text. Pathological inputs (unbalanced braces,
+    nested escape sequences across multiple values) may not be fully
+    repaired — the caller still attempts ``json.loads`` and falls
+    through to the final logger.error if repair is insufficient.
+
+    Pure standard library — no third-party dependencies.
+    """
+    out: list[str] = []
+    in_string = False
+    i = 0
+    n = len(text)
+    while i < n:
+        c = text[i]
+        if c == '\\' and in_string and i + 1 < n:
+            # Pass through any escape sequence (\", \\, \n, \uXXXX, etc.)
+            out.append(c)
+            out.append(text[i + 1])
+            i += 2
+            continue
+        if c == '"':
+            if not in_string:
+                in_string = True
+                out.append(c)
+            else:
+                # Peek the next non-whitespace character to decide.
+                j = i + 1
+                while j < n and text[j] in (' ', '\t', '\n', '\r'):
+                    j += 1
+                if j >= n or text[j] in (',', ']', '}', ':'):
+                    in_string = False
+                    out.append(c)
+                else:
+                    # Stray quote inside string value — escape it.
+                    out.append('\\"')
+        else:
+            out.append(c)
+        i += 1
+    return ''.join(out)

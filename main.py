@@ -79,6 +79,42 @@ def _ratio_float(value: str) -> float:
 
 
 # ============================================================
+# Round 53 monitor #4: symlink path-swap defense
+# ============================================================
+
+def _maybe_warn_on_symlink(args: argparse.Namespace) -> None:
+    """Emit a warning when a user-provided path is a symlink.
+
+    The local single-user threat model has no realistic exploit vector
+    for symlink path-swap TOCTOU (an attacker with local RW access has
+    far worse capabilities), but a visible warning is useful to detect
+    accidental aliases on NAS / mounted filesystems and to surface the
+    audit boundary explicitly. Pass ``--allow-symlink`` to suppress.
+    """
+    if getattr(args, "allow_symlink", False):
+        return
+    candidates: list[tuple[str, str]] = []
+    if args.game_dir:
+        candidates.append(("--game-dir", args.game_dir))
+    config_path = getattr(args, "config", "") or ""
+    if config_path:
+        candidates.append(("--config", config_path))
+    for flag, raw in candidates:
+        try:
+            p = Path(raw)
+            if p.is_symlink():
+                resolved = p.resolve()
+                logger.warning(
+                    f"[WARN] {flag} 路径是 symlink: {p} → {resolved}\n"
+                    f"        Round 53 monitor #4: 本地工具无 realistic "
+                    f"exploit vector，但警告留作审计；如有意为之加 "
+                    f"--allow-symlink 抑制。"
+                )
+        except OSError:
+            pass  # path errors are caught later by existence checks
+
+
+# ============================================================
 # CLI 入口
 # ============================================================
 
@@ -170,6 +206,11 @@ def main():
                         help="游戏引擎类型 (默认: auto 自动检测)")
     parser.add_argument("--config", default="", metavar="PATH",
                         help="配置文件路径（默认自动查找 renpy_translate.json）")
+    parser.add_argument("--allow-symlink", action="store_true", default=False,
+                        help="允许 --game-dir / --config 路径为 symlink，"
+                             "默认会输出 warning。本地单机工具无 realistic "
+                             "exploit vector（Round 53 monitor #4），本 flag "
+                             "主要用于抑制 NAS / 挂载点的误报告警。")
 
     args = parser.parse_args()
 
@@ -178,6 +219,12 @@ def main():
         quiet=args.quiet,
         log_file=args.log_file,
     )
+
+    # Round 53 monitor #4: symlink path-swap defense (informational warning).
+    # Local single-user tool has no realistic multi-tenant exploit vector,
+    # but a visible warning catches accidental aliases on shared / mounted
+    # filesystems. ``--allow-symlink`` suppresses for legitimate use.
+    _maybe_warn_on_symlink(args)
 
     # 智能检测游戏目录
     game_dir = Path(args.game_dir)

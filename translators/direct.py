@@ -80,6 +80,16 @@ def run_pipeline(args: argparse.Namespace) -> None:
     logger.info(f"游戏目录: {game_dir}")
     logger.info(f"输出目录: {output_dir}")
     logger.info(f"API: {args.provider} / {args.model or '默认'}")
+    # Round 53 W4: direct-mode source-language assumption.
+    #   ``translators/renpy_text_utils.py::MIN_ENGLISH_CHARS_FOR_UNTRANSLATED``
+    #   hard-codes 12 ASCII letters as the leakage-detection threshold,
+    #   so direct-mode is implicitly English-source-only. Non-English
+    #   source games (ja/ko/etc) should use tl-mode, which scans tl/
+    #   directory slots and is source-language agnostic.
+    logger.info(
+        "[NOTE] direct-mode 假设源语言为 English；非英语源游戏请改用 tl-mode "
+        "（详见 README §source language assumption）"
+    )
     logger.info("")
 
     # 初始化 API 客户端

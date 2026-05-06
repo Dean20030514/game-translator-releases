@@ -62,15 +62,25 @@ def read_bounded(readable, *, limit: int = MAX_API_RESPONSE_BYTES) -> bytes:
     """Read from a file-like ``readable`` object, enforcing a byte-count cap.
 
     Works for both ``http.client.HTTPResponse`` and the context-manager object
-    returned by ``urllib.request.urlopen``. Reads in 64 KB chunks so the limit
-    is hit promptly on hostile streams without stalling normal use.
+    returned by ``urllib.request.urlopen``. Reads in chunks (≤ 64 KB) so the
+    limit is hit promptly on hostile streams without stalling normal use.
 
-    Raises ``ResponseTooLarge`` once cumulative bytes exceed ``limit``.
+    Raises ``ResponseTooLarge`` once cumulative bytes would exceed ``limit``.
+
+    Round 53 monitor item #2 (precision tightening): each iteration's read
+    size is capped at ``min(_READ_CHUNK_SIZE, limit - total + 1)``. The
+    ``+1`` reserves one byte to detect overshoot at the boundary without
+    accepting it. Maximum precision deviation is therefore 1 byte (the
+    detector byte itself triggers the raise) instead of the previous
+    ~64 KB (one full chunk past the cap before the check fired). The
+    fix preserves the fast path for normal-sized responses (< 64 KB
+    remaining → ``budget`` is the limiting factor only at the cap edge).
     """
     chunks: list[bytes] = []
     total = 0
     while True:
-        chunk = readable.read(_READ_CHUNK_SIZE)
+        budget = limit - total + 1  # +1 = overshoot detector byte
+        chunk = readable.read(min(_READ_CHUNK_SIZE, budget))
         if not chunk:
             break
         total += len(chunk)

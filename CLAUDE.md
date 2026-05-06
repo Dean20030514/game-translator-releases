@@ -10,7 +10,7 @@
 
 **当前数字**（测试数 / 文件数 / CI 步骤 / 断言点）：见 [HANDOFF.md](HANDOFF.md) 顶部 `<!-- VERIFIED-CLAIMS-START -->` 块 — **单一声称源**。本文 prose 不再独立声称数字。
 
-**质量水位**：direct-mode 漏翻率 4.01%；tl-mode 翻译成功率 99.97%（r52 实测 The Tyrant 74098 entries / **99.991%**）；连续 12 轮 0 CRITICAL correctness（r35-r52）。
+**质量水位**：direct-mode 漏翻率 4.01%（仅适用 English source，详见下方"已知限制"）；tl-mode 翻译成功率 99.97%（r52 实测 The Tyrant 74098 entries / **99.991%**）；连续 13 轮 0 CRITICAL correctness（r35-r53）。
 
 ---
 
@@ -95,10 +95,11 @@ scripts/         verify_docs_claims.py / verify_workflow.py / install_hooks.sh
 ## 已知限制
 
 - **build.py**：CI 跑 smoke gate（`import build` + `--clean-only`）；完整 PyInstaller 打包仍仅手动测（CI 装 PyInstaller + 跑全量打包成本高，且产物 .exe 在 CI 验证有限）
-- **GUI 自动化** — **architectural decision，not actionable debt**：tkinter 跨平台 headless 需 Xvfb（Linux only）或 `pyvirtualdisplay`（违反零依赖契约），Windows 无 Xvfb 等价。ROI 低 + 跨平台覆盖不全。保留为 informational watchlist；如未来引入纯 stdlib 的 GUI mock 框架可重新评估
+- **GUI 自动化** — **architectural decision，not actionable debt**（r53 监控 #6 重新评估维持原决策）：tkinter 跨平台 headless 需 Xvfb（Linux only）或 `pyvirtualdisplay`（违反零依赖契约），Windows 无 Xvfb 等价。ROI 低 + 跨平台覆盖不全。保留为 informational watchlist；如未来引入纯 stdlib 的 GUI mock 框架可重新评估
 - 端到端测试需 API key，未进入 CI
 - RPG Maker Plugin Commands(356) / JS 硬编码 / 加密归档暂不支持
-- 非中文目标语言（ja / ko / zh-tw）有 5 层 code-level contract 锁死，但端到端验证仍需真实 API + 游戏
+- **direct-mode 仅适用英文源游戏**（r53 W4，文档化路径）：`translators/renpy_text_utils.py::MIN_ENGLISH_CHARS_FOR_UNTRANSLATED = 12` + `_is_untranslated_dialogue` 仅计 a-z 字符，硬编码英文检测假设。非英文源游戏（ja/ko/etc）请改用 tl-mode（扫描 `tl/<lang>/` 空槽位，源语言 agnostic）。direct-mode 启动时会输出 INFO log 提示此限制
+- **目标语言**：r52 C4 BREAKING 后固定 zh 简体中文（多目标语言 5 层 contract + `core/lang_config.py` + `--target-lang` 已删除）
 
 ---
 
@@ -130,6 +131,9 @@ scripts/         verify_docs_claims.py / verify_workflow.py / install_hooks.sh
 1. 修改 `CLAUDE.md` 必须同步 `.cursorrules`（byte-identical 契约）
 2. 数字声称（测试数 / 文件数 / CI 步骤 / 断言点）只在 `HANDOFF.md` `VERIFIED-CLAIMS` 块声明，其他文档只引用
 3. 永远不要在文档中**直接**写测试数 / 行数 / 文件数等数字而不先 grep / wc / find / `verify_docs_claims --fast` ground-truth
-4. round 50 起所有 audit findings 同轮 fix，零 deferred（r51 / r52 各 1 次执行验证有效）
+4. round 50 起所有 audit findings 同轮 fix，零 deferred（r51 / r52 / r53 各 1 次执行验证有效）
 5. 大改动遵循三段式：Plan → Implement（小步） → Verify（零问题）
 6. 修改 logger namespace / repo URL self-references 必须保持 `tests/test_repo_rename_consistency.py` 4 contract tests 全 PASS；6 处 `anonymousException renpy-translator (MIT, 2024)` 上游归属永远不能被任何 sed / refactor 误删（r51 加固）
+7. **`tl_mode.py` retry 路径必须保持并发**（r53 W1 契约）— 任何 sequential retry 重新引入必须先 plan-first
+8. **LLM ID drift detection 必须保留 layer-6**（r53 W3 契约）— 任何主 stage / retry stage 移除 `detect_id_drift()` 必须先 plan-first
+9. **Pickle 白名单不得放宽**（r53 监控 #1 verified）— 任何向 `_SAFE_BUILTINS` / `_SAFE_COLLECTIONS` / `_SAFE_CODECS` / `_SAFE_COPYREG` 添加新 entry 必须先跑 `tests/test_pickle_safe_redteam.py` 红队 audit

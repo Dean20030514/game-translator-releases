@@ -563,6 +563,118 @@ def test_pipeline_imports_smoke():
 
 
 
+def test_w_monitor4_symlink_warning_when_unflagged():
+    """Round 53 monitor #4: ``_maybe_warn_on_symlink`` emits warning when
+    --game-dir is a symlink and --allow-symlink is not set."""
+    import argparse as _ap
+    import logging
+    from unittest import mock as _mock
+    from main import _maybe_warn_on_symlink
+
+    args = _ap.Namespace(
+        game_dir="/fake/game", config="", allow_symlink=False,
+    )
+    captured: list[str] = []
+
+    class _Cap(logging.Handler):
+        def emit(self, record):
+            captured.append(record.getMessage())
+
+    handler = _Cap()
+    logger = logging.getLogger("multi_engine_translator")
+    logger.addHandler(handler)
+    prev = logger.level
+    logger.setLevel(logging.WARNING)
+    try:
+        with _mock.patch("main.Path") as MockPath:
+            mock_path_instance = _mock.MagicMock()
+            mock_path_instance.is_symlink.return_value = True
+            mock_path_instance.resolve.return_value = "/real/target"
+            MockPath.return_value = mock_path_instance
+            _maybe_warn_on_symlink(args)
+    finally:
+        logger.removeHandler(handler)
+        logger.setLevel(prev)
+
+    drift = [m for m in captured if "monitor #4" in m or "symlink" in m]
+    assert drift, f"expected symlink warning, got logs: {captured}"
+    print("[OK] w_monitor4_symlink_warning_when_unflagged")
+
+
+def test_w_monitor4_allow_symlink_suppresses_warning():
+    """``--allow-symlink`` suppresses the warning (legitimate NAS / mount path)."""
+    import argparse as _ap
+    import logging
+    from unittest import mock as _mock
+    from main import _maybe_warn_on_symlink
+
+    args = _ap.Namespace(
+        game_dir="/fake/game", config="", allow_symlink=True,
+    )
+    captured: list[str] = []
+
+    class _Cap(logging.Handler):
+        def emit(self, record):
+            captured.append(record.getMessage())
+
+    handler = _Cap()
+    logger = logging.getLogger("multi_engine_translator")
+    logger.addHandler(handler)
+    prev = logger.level
+    logger.setLevel(logging.WARNING)
+    try:
+        with _mock.patch("main.Path") as MockPath:
+            mock_path_instance = _mock.MagicMock()
+            mock_path_instance.is_symlink.return_value = True
+            MockPath.return_value = mock_path_instance
+            _maybe_warn_on_symlink(args)
+    finally:
+        logger.removeHandler(handler)
+        logger.setLevel(prev)
+
+    drift = [m for m in captured if "monitor #4" in m or "symlink" in m]
+    assert not drift, (
+        f"--allow-symlink should suppress warnings, got: {captured}"
+    )
+    print("[OK] w_monitor4_allow_symlink_suppresses_warning")
+
+
+def test_w_monitor4_no_warning_for_regular_path():
+    """No warning when path is not a symlink (the common case)."""
+    import argparse as _ap
+    import logging
+    from unittest import mock as _mock
+    from main import _maybe_warn_on_symlink
+
+    args = _ap.Namespace(
+        game_dir="/regular/path", config="", allow_symlink=False,
+    )
+    captured: list[str] = []
+
+    class _Cap(logging.Handler):
+        def emit(self, record):
+            captured.append(record.getMessage())
+
+    handler = _Cap()
+    logger = logging.getLogger("multi_engine_translator")
+    logger.addHandler(handler)
+    prev = logger.level
+    logger.setLevel(logging.WARNING)
+    try:
+        with _mock.patch("main.Path") as MockPath:
+            mock_path_instance = _mock.MagicMock()
+            mock_path_instance.is_symlink.return_value = False
+            MockPath.return_value = mock_path_instance
+            _maybe_warn_on_symlink(args)
+    finally:
+        logger.removeHandler(handler)
+        logger.setLevel(prev)
+
+    drift = [m for m in captured if "monitor #4" in m or "symlink" in m]
+    assert not drift, f"regular path must not warn, got: {captured}"
+    print("[OK] w_monitor4_no_warning_for_regular_path")
+
+
 def run_all() -> int:
     """Run every test in this module; return test count."""
     tests = [
@@ -590,6 +702,9 @@ def run_all() -> int:
         test_screen_backup_no_overwrite,
         test_screen_chunks,
         test_pipeline_imports_smoke,
+        test_w_monitor4_symlink_warning_when_unflagged,
+        test_w_monitor4_allow_symlink_suppresses_warning,
+        test_w_monitor4_no_warning_for_regular_path,
     ]
     for t in tests:
         t()

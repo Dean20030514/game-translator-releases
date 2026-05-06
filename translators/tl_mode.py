@@ -73,6 +73,8 @@ def _translate_one_tl_chunk(
     Returns:
         (rel_path, ci, kept_items_dict, dropped_count, warnings)
     """
+    from translators._tl_retry import detect_id_drift, _expected_id_set
+
     protected_text, ph_mapping = protect_placeholders(chunk_text)
     user_prompt = build_tl_user_prompt(protected_text, len(chunk_entries))
     translations = ctx.client.translate(ctx.system_prompt, user_prompt)
@@ -82,19 +84,35 @@ def _translate_one_tl_chunk(
     kept_items: dict[str, str] = {}
     dropped = 0
     warnings: list[str] = []
+    returned_ids: set[str] = set()
     # Round 52 C4 BREAKING: lang_config / resolve_translation_field
     # retired.  Only zh target supported; AI response reader hard-coded
     # to ``t.get("zh", "")``.
     for t in translations:
+        tid = t.get("id", "")
+        if tid:
+            returned_ids.add(tid)
         item_w = check_response_item(t)
         if item_w:
             dropped += 1
             warnings.extend(f"[CHECK-DROPPED] {w}" for w in item_w)
         else:
-            tid = t.get("id", "")
             zh = t.get("zh", "")
             if tid and zh:
                 kept_items[tid] = zh
+
+    # Round 53 W3 layer 6: LLM ID-space drift detection.
+    expected_ids = _expected_id_set(chunk_entries)
+    drifted, drift_ratio, n_missing, n_extra = detect_id_drift(
+        expected_ids, returned_ids,
+    )
+    if drifted:
+        warnings.append(
+            f"[W3-DRIFT {drift_ratio:.0%}] {rel_path} chunk {ci}: "
+            f"missing={n_missing} extra={n_extra} "
+            f"(LLM ID 集偏离 expected > {int(0.10 * 100)}%, fallback 链需补救)"
+        )
+
     return rel_path, ci, kept_items, dropped, warnings
 
 
@@ -460,60 +478,28 @@ def run_tl_pipeline(args: argparse.Namespace) -> None:
         progress.mark_file_done(rel_path)
         files_processed += 1
 
-    # ── 4b. 重试未匹配条目（小 chunk + 最多 1 轮） ──
+    # ── 4b. 重试未匹配条目（Round 53 W1: 拆到 _tl_retry.py，
+    #         ThreadPoolExecutor 并发 + per-chunk progress + 自适应 chunk size） ──
+    from translators._tl_retry import run_retry_stage
+
     retry_results = scan_tl_directory(str(game_dir / "tl"), tl_lang)
     retry_dlg, retry_str = get_untranslated_entries(retry_results)
     retry_all = [e for e in retry_dlg if e.original.strip()] + \
                 [e for e in retry_str if e.old.strip()]
     if retry_all:
-        logger.info(f"\n[TL-RETRY] {len(retry_all)} 条未匹配，重试中（chunk=5）…")
-        retry_by_file: dict[str, list] = {}
-        for e in retry_all:
-            retry_by_file.setdefault(e.tl_file, []).append(e)
-
-        for fpath, r_entries in retry_by_file.items():
-            r_entries.sort(key=lambda e: e.tl_line)
-            r_chunks = build_tl_chunks(r_entries, max_per_chunk=5)
-            r_kept: dict[str, str] = {}
-            for _ci, (chunk_text, _cen) in enumerate(r_chunks, 1):
-                ptext, phmap = protect_placeholders(chunk_text)
-                up = build_tl_user_prompt(ptext, len(_cen))
-                ts = client.translate(system_prompt, up)
-                _restore_placeholders_in_translations(ts, phmap, extra_keys=("id",))
-                for t in ts:
-                    iw = check_response_item(t)
-                    if not iw and t.get("id") and t.get("zh"):
-                        r_kept[t["id"]] = t["zh"]
-
-            # Round 31 Tier A-3: 4-dict build + L5 tag-stripped fallback
-            r_stripped, r_clean, r_norm, r_tagstripped = _build_fallback_dicts(r_kept)
-            r_matched: list = []
-            for entry in r_entries:
-                if isinstance(entry, DialogueEntry):
-                    zh = r_kept.get(entry.identifier)
-                    if zh:
-                        entry.translation = zh
-                        r_matched.append(entry)
-                        total_translated += 1
-                else:
-                    zh, _ = _match_string_entry_fallback(
-                        entry.old, r_kept, r_stripped, r_clean, r_norm, r_tagstripped,
-                    )
-                    if zh:
-                        entry.new = zh
-                        r_matched.append(entry)
-                        total_translated += 1
-
-            if r_matched:
-                modified = fill_translation(fpath, r_matched)
-                Path(fpath).write_text(modified, encoding="utf-8")
-                total_filled += len(r_matched)
-                try:
-                    modified_rpy_files.add(str(Path(fpath).relative_to(game_dir)))
-                except ValueError:
-                    pass  # 无法计算相对路径时跳过精确清理
-                logger.debug(f"  [TL-RETRY] 回填 {len(r_matched)} 条到 "
-                      f"{Path(fpath).name}")
+        logger.info(f"\n[TL-RETRY] {len(retry_all)} 条未匹配，重试中…")
+        rt_translated, rt_filled = run_retry_stage(
+            retry_all=retry_all,
+            client=client,
+            system_prompt=system_prompt,
+            workers=workers,
+            game_dir=game_dir,
+            fill_translation=fill_translation,
+            DialogueEntry=DialogueEntry,
+            modified_rpy_files=modified_rpy_files,
+        )
+        total_translated += rt_translated
+        total_filled += rt_filled
 
     # ── 4c. 后处理：修复 nvl clear 兼容性 + 空 translate 块 ──
     tl_dir = str(game_dir / "tl")

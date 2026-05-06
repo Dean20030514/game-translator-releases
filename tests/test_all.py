@@ -20,6 +20,8 @@ latter past the same 800-line limit.
 * ``test_glossary_prompts_config.py`` — Glossary / prompts / Config / lang_config
 * ``test_translation_state.py``     — ProgressTracker / TranslationDB / dedupe
 * ``test_runtime_hook.py``          — runtime-hook emitter + v2 schema + gui overrides
+* ``test_tl_retry.py``              — Round 53 W1/W3: retry stage parallelism + LLM ID drift detection
+* ``test_pickle_safe_redteam.py``   — Round 53 monitor #1: pickle whitelist red-team
 """
 
 import sys
@@ -33,6 +35,8 @@ from tests import (
     test_glossary_prompts_config,
     test_translation_state,
     test_runtime_hook,
+    test_tl_retry,
+    test_pickle_safe_redteam,
 )
 
 
@@ -44,6 +48,8 @@ def main() -> int:
     total += test_glossary_prompts_config.run_all()
     total += test_translation_state.run_all()
     total += test_runtime_hook.run_all()
+    total += test_tl_retry.run_all()
+    total += test_pickle_safe_redteam.run_all()
     print()
     print("=" * 40)
     print(f"ALL {total} TESTS PASSED")

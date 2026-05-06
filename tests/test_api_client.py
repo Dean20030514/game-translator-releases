@@ -81,6 +81,87 @@ def test_json_parse():
     # 应该能被 strategy 6 或 direct parse 捕获
     print("[OK] _parse_json_response (含逐对象提取)")
 
+def test_w2_escape_fix_inner_quotes_in_zh():
+    """Round 53 W2 layer 7: stray ``"`` inside zh value gets repaired.
+
+    Pattern observed in pre-r52 ja path: LLM emits ``{"zh": "他说"你好""}``
+    where the inner quotes should be ``\\"``. The structural 1-6 layer
+    chain cannot recover; layer 7 char-walks the text and re-escapes.
+    """
+    p = api_client.APIClient._parse_json_response
+    # Stray quotes inside zh value: 他说 + "你好" should be re-escaped
+    broken = '[{"id": "x1", "original": "He said hi", "zh": "他说"你好""}]'
+    result = p(broken)
+    assert len(result) == 1, f"layer 7 must recover 1 item, got {result}"
+    assert result[0]["id"] == "x1"
+    # The repaired zh should contain the inner content (quotes escaped)
+    assert "你好" in result[0]["zh"]
+    print("[OK] w2_escape_fix_inner_quotes_in_zh")
+
+
+def test_w2_escape_fix_unescaped_in_original():
+    """Round 53 W2 layer 7: stray ``"`` inside original field also fixed."""
+    p = api_client.APIClient._parse_json_response
+    broken = '[{"id": "x2", "original": "You can"t see", "zh": "你看不见"}]'
+    result = p(broken)
+    assert len(result) == 1, f"layer 7 must recover 1 item, got {result}"
+    assert result[0]["id"] == "x2"
+    assert "看不见" in result[0]["zh"]
+    print("[OK] w2_escape_fix_unescaped_in_original")
+
+
+def test_w2_escape_fix_multiple_stray_quotes():
+    """Round 53 W2 layer 7: multiple consecutive stray quotes all repaired."""
+    p = api_client.APIClient._parse_json_response
+    # 她说："hello""  — Chinese colon then unescaped english quotes
+    broken = '[{"id": "x3", "original": "She says hello", "zh": "她说："hello""}]'
+    result = p(broken)
+    assert len(result) == 1, f"layer 7 must recover 1 item, got {result}"
+    assert result[0]["id"] == "x3"
+    print("[OK] w2_escape_fix_multiple_stray_quotes")
+
+
+def test_w2_escape_fix_does_not_break_valid_json():
+    """Round 53 W2 layer 7: well-formed JSON passes through layer 1 unchanged.
+
+    Layer 7 must never run when layer 1 succeeds — verified indirectly by
+    asserting that valid JSON still parses (no over-escape mangles it).
+    """
+    p = api_client.APIClient._parse_json_response
+    # Properly escaped quotes inside zh value
+    valid = '[{"id": "x4", "original": "Hello", "zh": "他说\\"你好\\""}]'
+    result = p(valid)
+    assert len(result) == 1
+    assert result[0]["id"] == "x4"
+    # zh should still contain the escape sequence (not over-escaped)
+    assert '"你好"' in result[0]["zh"]
+    print("[OK] w2_escape_fix_does_not_break_valid_json")
+
+
+def test_w2_repair_helper_directly():
+    """Round 53 W2 layer 7: ``_repair_unescaped_quotes_in_strings`` correctness."""
+    from core.api_client import _repair_unescaped_quotes_in_strings as repair
+
+    # No-op on well-formed JSON
+    assert repair('{"a": "b"}') == '{"a": "b"}'
+
+    # Single stray quote inside value
+    fixed = repair('{"a": "he"llo"}')
+    assert fixed == '{"a": "he\\"llo"}', f"got: {fixed!r}"
+
+    # Backslash-escape pass-through
+    assert repair('{"a": "x\\"y"}') == '{"a": "x\\"y"}'
+
+    # Empty string value
+    assert repair('{"a": ""}') == '{"a": ""}'
+
+    # Nested object boundary
+    nested = repair('{"a": {"b": "c"}}')
+    assert nested == '{"a": {"b": "c"}}', f"got: {nested!r}"
+
+    print("[OK] w2_repair_helper_directly")
+
+
 def test_pricing_lookup():
     """测试模型级定价查询和推理模型检测"""
     from core.api_client import get_pricing, is_reasoning_model
@@ -509,6 +590,65 @@ def test_http_pool_rejects_oversized_response():
     print("[OK] test_http_pool_rejects_oversized_response")
 
 
+def test_w_monitor2_read_bounded_precision_at_cap():
+    """Round 53 monitor #2: ``read_bounded`` precision deviation ≤ 1 byte.
+
+    Pre-r53 baseline: each iteration read a full 64 KB chunk before the
+    cap check fired, so streams could exceed the nominal cap by up to
+    65535 bytes. r53 monitor #2 tightens this by sizing each read to
+    ``min(_READ_CHUNK_SIZE, limit - total + 1)``; the +1 reserves one
+    byte for overshoot detection but never accepts it. This test asserts
+    the new precision contract.
+    """
+    from io import BytesIO
+    from core.http_pool import read_bounded, ResponseTooLarge
+
+    LIMIT = 1024  # 1 KB — small for fast test
+    OVERSHOOT = 100  # data is limit + 100 bytes
+    stream = BytesIO(b'\x00' * (LIMIT + OVERSHOOT))
+    try:
+        read_bounded(stream, limit=LIMIT)
+    except ResponseTooLarge:
+        pos = stream.tell()
+        assert pos <= LIMIT + 1, (
+            f"r53 monitor #2 precision contract violated: stream advanced "
+            f"to position {pos} but cap is {LIMIT} (max deviation 1 byte)"
+        )
+        print(f"[OK] w_monitor2_read_bounded_precision_at_cap "
+              f"(read {pos} bytes, limit {LIMIT}, deviation {pos - LIMIT})")
+        return
+    raise AssertionError("expected ResponseTooLarge to raise")
+
+
+def test_w_monitor2_read_bounded_at_exact_limit_succeeds():
+    """``read_bounded`` returns full payload when size equals limit exactly."""
+    from io import BytesIO
+    from core.http_pool import read_bounded
+
+    LIMIT = 2048
+    payload = b'\xab' * LIMIT  # exactly at limit
+    stream = BytesIO(payload)
+    result = read_bounded(stream, limit=LIMIT)
+    assert result == payload, "exact-limit payload must return intact"
+    assert len(result) == LIMIT
+    print("[OK] w_monitor2_read_bounded_at_exact_limit_succeeds")
+
+
+def test_w_monitor2_read_bounded_one_byte_over_limit_raises():
+    """Boundary: limit + 1 byte exactly triggers ResponseTooLarge."""
+    from io import BytesIO
+    from core.http_pool import read_bounded, ResponseTooLarge
+
+    LIMIT = 2048
+    stream = BytesIO(b'\xff' * (LIMIT + 1))
+    try:
+        read_bounded(stream, limit=LIMIT)
+    except ResponseTooLarge:
+        print("[OK] w_monitor2_read_bounded_one_byte_over_limit_raises")
+        return
+    raise AssertionError("limit + 1 byte must raise")
+
+
 def test_api_client_urllib_rejects_oversized_response():
     """The urllib fallback path in ``APIClient`` must also enforce the cap —
     otherwise setting ``use_connection_pool=False`` would silently bypass
@@ -549,6 +689,11 @@ def run_all() -> int:
         test_usage_stats,
         test_rate_limiter,
         test_json_parse,
+        test_w2_escape_fix_inner_quotes_in_zh,
+        test_w2_escape_fix_unescaped_in_original,
+        test_w2_escape_fix_multiple_stray_quotes,
+        test_w2_escape_fix_does_not_break_valid_json,
+        test_w2_repair_helper_directly,
         test_pricing_lookup,
         test_api_empty_choices,
         test_reasoning_model_timeout,
@@ -563,6 +708,9 @@ def run_all() -> int:
         test_http_pool_raises_http_error_on_4xx,
         test_api_key_child_env_pop,
         test_http_pool_rejects_oversized_response,
+        test_w_monitor2_read_bounded_precision_at_cap,
+        test_w_monitor2_read_bounded_at_exact_limit_succeeds,
+        test_w_monitor2_read_bounded_one_byte_over_limit_raises,
         test_api_client_urllib_rejects_oversized_response,
     ]
     for t in tests:
