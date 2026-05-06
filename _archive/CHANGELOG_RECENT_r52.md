@@ -1,27 +1,15 @@
-# Round 47 → Round 51 详细变更（Round 51 末归档快照）
+# Round 48 → Round 52 详细变更（Round 52 末归档快照）
 
 > **本文件已精简**。原始未删节版可通过 git 恢复：
-> `git log --follow --oneline _archive/CHANGELOG_RECENT_r51.md` 找重写本文件之前的 commit hash → `git show <hash>:_archive/CHANGELOG_RECENT_r51.md`（或 r50/r49 旧名 — `--follow` 自动跨 rename）。
+> `git log --follow --oneline _archive/CHANGELOG_RECENT_r52.md` 找重写本文件之前的 commit hash → `git show <hash>:_archive/CHANGELOG_RECENT_r52.md`（或 r51/r50/r49 旧名 — `--follow` 自动跨 rename）。
 >
-> **r1-r51 演进摘要**：见 [EVOLUTION.md](EVOLUTION.md)
+> **r1-r52 演进摘要**：见 [EVOLUTION.md](EVOLUTION.md)
 > **r1-r45 总览表**：见 [CHANGELOG_FULL.md](CHANGELOG_FULL.md)
 > **当前 build / 数字 / 推荐工作**：见 [HANDOFF.md](../HANDOFF.md)
 >
-> **关于历史叙述中的文件名**：本文件叙述 r47-r51 当时改动时引用的 `docs/constants.md` / `docs/quality_chain.md` / `CHANGELOG_RECENT.md` 等文件，在 round 50 末 docs 重构时已被删除合并。等价当前文档：常量 → [`docs/REFERENCE.md`](../docs/REFERENCE.md)；架构/校验链 → [`docs/ARCHITECTURE.md`](../docs/ARCHITECTURE.md)；CHANGELOG_RECENT.md → 本文件（rename 后）。historical references 保留以维持 round 当时的真实叙述。
+> **关于历史叙述中的文件名**：本文件叙述 r48-r52 当时改动时引用的 `docs/constants.md` / `docs/quality_chain.md` / `CHANGELOG_RECENT.md` / `core/lang_config.py` / `tools/merge_translations_v2.py` 等文件，在 round 50 末 docs 重构 / round 52 C4 scope reduction 时已被删除合并。等价当前文档：常量 → [`docs/REFERENCE.md`](../docs/REFERENCE.md)；架构/校验链 → [`docs/ARCHITECTURE.md`](../docs/ARCHITECTURE.md)；CHANGELOG_RECENT.md → 本文件（rename 后）；多语言 contract → r52 C4 retired。historical references 保留以维持 round 当时的真实叙述。
 >
-> **Round 51 删 r46**：5 轮滚动 cap（保 r47-r51）。r46 详细已落 git history；恢复方式同上。r46 高亮在 [EVOLUTION.md](EVOLUTION.md) 概览表已保留。
-
----
-
-## Round 47 — 5 step 综合执行 + 7 项决策（一并 push origin）
-
-**主线**：5 commits + 1 docs；最终 push 10 commits（r46 + r47）至 origin/main；测试净 +8。
-
-1. **r43 detail 真实推 archive**（按 round 顺序插入 `_archive/CHANGELOG_FULL.md`，CHANGELOG_RECENT 删 125 行 detail）
-2. r45 + r46 audit 7 LOW gap 全补（G1 boundary × 4 含 TOCTOU regression / G2 mixed × 2 / G3 multibyte × 2）
-3. **TOCTOU 升级 ACCEPTABLE doc → MITIGATED code** — `engines/csv_engine.py` 加 `import os` + `_extract_csv` `with open(...)` 后加 `os.fstat(f.fileno()).st_size` 二次校验，4 bypass vector 现 **3 ACCEPTABLE + 1 MITIGATED**（symlink/OSError fail-open/units 累积 ACCEPTABLE + TOCTOU 现 MITIGATED）
-4. r47 起始三维度审计（3 并行 Explore agent；0 CRITICAL/0 HIGH/3 MEDIUM coverage 推 r48 / 2 LOW correctness cosmetic / 1 LOW security informational；TOCTOU 加固代码确认有效；**连续 8 轮 0 CRITICAL correctness**）
-5. `tests/test_translation_state.py` 765 → **599** 行预防性拆分（4 个 r35 C1 + r36 H1 ProgressTracker language-aware tests byte-identical 迁出 → 新 `tests/test_progress_tracker_language.py` 215 行 / 4 tests；CI workflow 29 → **30** steps）
+> **Round 52 删 r47**：5 轮滚动 cap（保 r48-r52）。r47 详细已落 git history；恢复方式同上。r47 高亮在 [EVOLUTION.md](EVOLUTION.md) 概览表已保留。
 
 ---
 
@@ -210,6 +198,99 @@ Q5 sanity gate 跑 B4 (CI grep guard 本地预跑) 时发现 r51 A5 新加的 `t
 
 ---
 
+---
+
+## Round 52 — Scope reduction BREAKING（6 commits + zh sanity validation）
+
+**主线**：6 commits（已全 push origin/main，最新 `e2a03b1`）；测试净 -76（507→431；C4 scope reduction 删 8 测试文件 + 11 测试用例 占主导，C1 +7 + C3 +1 部分回补）；test_files -5（35→30）；ci_steps -4（38→34）；assertion_points -76（633→557）。
+
+### Round 52 起步背景（用户跑 ja 流程暴露的 architecture 痛点）
+
+User 自己用 START.bat 模式 5/6 跑非中文 e2e（ja 端到端验证），ja 路径暴露 r35-r48 多语言 contract 在真实大规模数据下的多个不可掩盖痛点：
+
+- 27000+ 残留进 retry 阶段 → `tl_mode.py:484-532` retry **单线程 + 零 progress logging** → 用户视角"卡死" 8-45h
+- LLM 偶发 JSON mis-escape (`\"...\"` 在 string value 内) → JSON 解析失败 → retry 又错 → 浪费 API
+- stage 3 fallback 4 层未匹配率异常高（27377/76225 = 36%）压给 retry → 双重痛苦
+- 第二次跑（mode 5 + 删 progress）后第 1662/1662 chunk + dedup 5197 + matching 完成回填 + 进 retry 阶段时网络又抖 → process exit 1，stage 4c postprocess + 4d clean_rpyc + stage 5 save 全部没跑
+
+User 决定 **scope reduction** — retire 整套多目标语言 contract（zh-tw / ja / ko），保留 zh-only。
+
+### C1 — HANDOFF push-status drift check（commit `806998a`）
+
+`scripts/verify_docs_claims.py` 加 3 函数：`parse_handoff_pending_push(text)` regex `(\d+)\s*commits?[\s\S]{0,80}?待[\s\S]{0,30}?push` 提取声称数字 + `count_unpushed_commits(repo_root)` git rev-list fail-open + `check_handoff_push_status(handoff, repo_root)` 仅"声称>0 ∧ 真实==0"方向触发 drift。新文件 `tests/test_verify_docs_claims_push_status.py` 7 unit tests（3 parse / 4 check 含 mock + fail-open）。CI workflow +1 step。catches r51 trap：HANDOFF L29 "本地 main 含 r51 5 commits 待 push" 但用户后续 push 了，prose 没 sync — 同性质 r45-r48 数字 drift 但在 push state 维度。
+
+### C2 — build.py CI smoke + GUI architectural decision（commit `34683d6`）
+
+`.github/workflows/test.yml` 加 step "Run build.py smoke (import + --clean-only)"。build.py 纯 stdlib（shutil/subprocess/sys/pathlib），`--clean-only` 不需 PyInstaller 依赖。catches build wrapper regression。CLAUDE+`.cursorrules` "已知限制" 段 byte-identical sync：`GUI / build 仅手动测试` SPLIT 为两条 — `build.py: now CI smoke (this commit)` + `GUI automation: explicit architectural decision, NOT debt`（tkinter 跨平台 headless 需 Xvfb (Linux only) 或 pyvirtualdisplay (违反零依赖契约) ; ROI 低 ; 跨平台覆盖不全；reclassified as informational watchlist per zero-debt closure 规则）。
+
+### C3 BREAKING — retire importlib plugin mode（commit `6d707f4`，19 文件 / +279 -371）
+
+scope reduction 第一波：`core/api_plugin.py::_load_custom_engine` (importlib in-process loader, 65 行) + `_MAX_PLUGIN_RESPONSE_BYTES` deprecated alias **整个删除**。`core/api_client.py::APIConfig.sandbox_plugin` field deleted（dispatch 简化为始终 `_SubprocessPluginClient`）。`main.py --sandbox-plugin` argparse flag deleted。6 caller sites（`engines/generic_pipeline.py` / `pipeline/stages.py` / `translators/{direct,retranslator,screen,tl_mode}.py`）`sandbox_plugin=getattr(...)` kwarg 全部去除。`custom_engines/example_echo.py` docstring rewrite。
+
+新加：`_SubprocessPluginClient.__init__` startup readiness probe（5 × 20ms poll loop）catches plugins missing `--plugin-serve` block → raise migration guidance（Q2=a 实现）。
+
+tests rewrite：删 6 importlib tests（`test_load_*`）+ `test_config_sandbox_plugin_default` + `test_client_custom_single_fallback`（host-side single-item fallback 仅适用于 in-process mode；subprocess 协议是 batch-only by contract）；加 2 new `test_subprocess_rejects_empty_name` + `test_subprocess_rejects_plugin_without_serve_block`（pin readiness probe contract）。tests/test_custom_engine.py: 20 → 14 tests。
+
+docs sync：CLAUDE+`.cursorrules` preamble byte-identical / README zh+en plugin description / SECURITY plugin sandbox row + known constraint / docs/ARCHITECTURE 5.6 + 7.4 / docs/REFERENCE APIConfig table + roadmap S-H-4 marked done。
+
+VERIFIED-CLAIMS sync：tests_total 514→508 / test_files 36 不变 / ci_steps 40 不变 / assertion_points 640→634。
+
+### C4 BREAKING — drop non-zh target language support（commit `e2a03b1`，37 文件 / +342 -4123）
+
+scope reduction 第二波（**最大单原子 BREAKING commit**）：
+
+**8 文件删除**：`core/lang_config.py`（LanguageConfig + LANGUAGE_CONFIGS dict + detect_chinese/japanese/korean_ratio + resolve_translation_field + get_language_config）+ `tools/merge_translations_v2.py`（v2 envelope merge 工具）+ 6 测试文件（test_translation_db_language / test_multilang_run / test_progress_tracker_language / test_runtime_hook_v2_schema / test_translation_editor_v2 / test_merge_translations_v2）。
+
+**1 文件新增**：`scripts/migrate_db_v2_to_v1.py`（剥离 `language` 字段 + 删 non-zh entries + reset version=1，幂等 on already-v1 inputs；写 .v2bak 备份）。
+
+**CLI 退役**：`main.py --target-lang`（multi-language outer loop trigger） + `--runtime-hook-schema`（v1/v2 选择）+ `one_click_pipeline.py --target-lang`；`args.target_lang` 在 entry 处硬编码 `"zh"`；`renpy_translate.example.json target_lang` 字段注释化；`pipeline/helpers.py run_main()`：`--target-lang` flag 从 cmd subprocess args 中删除。
+
+**代码简化（12+ 文件，~700 行精简到 ~50 行）**：`main.py`（删 `_parse_target_langs` + multi-lang outer loop + lang_config init）/ `core/prompts.py`（删 `_GENERIC_*_PROMPT_TEMPLATE` × 2 + `_build_generic_system_prompt` + `_COT_ADDON_EN` + `build_*_system_prompt` 中的 lang_config 分支）/ `core/translation_utils.py`（ProgressTracker `language=` kwarg + `_LEGACY_BARE_LANG` constant + `_key()` helper + language-aware bucket merging）/ `core/translation_db.py`（`default_language=` kwarg + `_entry_language` helper + 4-tuple → 3-tuple index + 强制 v1→v2 backfill；`SCHEMA_VERSION` 2→1）/ `core/runtime_hook_emitter.py`（`entry_language_filter` + `schema_version` + `target_lang` kwargs + v2 nested envelope output + `_iter_translation_pairs` language filter）/ `file_processor/{checker,validator}.py`（`lang_config` kwarg + W442 hardcoded MIN_CHINESE_RATIO）/ `engines/generic_pipeline.py`（`get_language_config` import + 4-tuple language-keyed db_index）/ `pipeline/stages.py`（`get_language_config` import + ProgressTracker `language=` + TranslationDB `default_language=` + `_generate_default_language()` hardcoded "chinese"）/ `translators/{direct,tl_mode,retranslator}.py`（ProgressTracker `language=` + TranslationDB `default_language=` + lang_config kwargs；AI response field reader hardcoded `t["zh"]`）/ `build.py`（PyInstaller hidden_imports 删 "core.lang_config"）。
+
+**测试更新**：`test_glossary_prompts_config.py` -6 / `test_file_processor.py` -1 / `test_file_safety_c5.py` -1 / `test_runtime_hook_filter.py` -3。
+
+**CI 更新**：`.github/workflows/test.yml` 删 7 steps（多 lang test runs + py_compile tools/merge_translations_v2）。
+
+**docs sync**（CLAUDE+`.cursorrules` byte-identical, README + HANDOFF + docs/ARCHITECTURE + docs/REFERENCE + SECURITY + CHANGELOG）：preamble zh-only with BREAKING migration note / architectural health table 多语言完整栈 → 目标语言 zh-only / recommended R52+ work #4（非中文 e2e）marked retired / 4 informational watchlist items added / file path index lang_config.py removed + migrate_db_v2_to_v1.py added / 阶段十一 row。
+
+**VERIFIED-CLAIMS sync**：tests_total 508→431（-77）/ test_files 36→30（-6）/ ci_steps 40→34（-6）/ assertion_points 634→557（-77）。
+
+**4 个 Q 决策**（用户提供）：Q1=a 完全删除 lang_config.py / Q2=a 删除 --target-lang flag + hardcode "zh" / Q3=a v2 schema 完全 retire + migrate_db_v2_to_v1.py / Q4=a r52 C4 编号。
+
+**zh sanity validation（A3 用户实跑 The Tyrant）**：
+
+| 指标 | 数值 |
+|---|---|
+| 总条目 | 74098（73922 dialog + 176 string） |
+| 翻译成功 | 74091（**99.991%** 成功率） |
+| Checker 丢弃 | 1（**0.0013%**，远低于 30% 阈值的 22000 倍冗余） |
+| Fallback 匹配 | 5（stage 3 4 层 fallback 救回 5 条） |
+| Retry 残留 | 198（**0.27%**，vs ja 路径 36% 改善 130×） |
+| 网络中断 | 1 次（getaddrinfo + 3 backoff）→ 自恢复 |
+| 总耗时 | 129.4 分钟（一次性完成，无 crash） |
+| API 成本 | $2.40（$0.000032/条） |
+| 退出码 | 0（postprocess + nvl_fix + clean_rpyc + glossary save 全跑完） |
+
+**对比 ja 路径 W1-W3 严重度**：W1 retry 单线程在 zh 上 7 min 无感 vs ja 上 8-45h "卡死"；W2 JSON mis-escape 在 zh 上 0 次触发 vs ja 上多次；W3 stage 3 fallback miss 在 zh 上 0.27% vs ja 上 36%。reduction scope 后 W1-W4 严重模式**永远不会再触发**到生产痛点级别。
+
+### Round 52 起始/末审计
+
+**起始**：不适用 — r52 起步即用户决策 scope reduction，无前置 audit gate。
+
+**末审计**（与本归档同 commit 执行）：3 并行 Explore agent 三维度审计 r51 7 commits + r52 6 commits 共 13 commits。零新 actionable findings 期望（结果在 commit message + audit-tail 段）— 连续 12 轮 0 CRITICAL correctness streak（r35-r52）。
+
+### Round 52 数字与里程碑
+
+- 测试 507 → **431**（-76 净）
+- test_files 35 → **30**（-5；+1 push-status / -6 multi-lang）
+- ci_steps 38 → **34**（-4；+2 push-status + build smoke / -6 multi-lang）
+- assertion_points 633 → **557**（-76 = test_total delta；self-test 126 不变）
+- **连续 12 轮 0 CRITICAL correctness 保持**（r35 - r52；新增 r52）
+- **scope reduction**：retire dual-mode plugin（C3）+ retire multi-target language（C4）
+- **W1-W4 actionable**：r52 末用户决定升级 4 informational watchlist 到 r53 actionable backlog（HANDOFF 推荐工作项段；watchlist 段保留作 cross-reference）
+
+---
+
 ## 已回滚
 
-无（r47-r51 所有 commits 全部保留在本地 main；r47-r50 已 push origin/main，r51 commits 待用户手动 push）。
+无（r48-r52 所有 commits 全部 push origin/main，最新 `e2a03b1`）。

@@ -10,7 +10,7 @@
 
 **当前数字**（测试数 / 文件数 / CI 步骤 / 断言点）：见 [HANDOFF.md](HANDOFF.md) 顶部 `<!-- VERIFIED-CLAIMS-START -->` 块 — **单一声称源**。本文 prose 不再独立声称数字。
 
-**质量水位**：direct-mode 漏翻率 4.01%；tl-mode 翻译成功率 99.97%；连续 11 轮 0 CRITICAL correctness（r35-r51）。
+**质量水位**：direct-mode 漏翻率 4.01%；tl-mode 翻译成功率 99.97%（r52 实测 The Tyrant 74098 entries / **99.991%**）；连续 12 轮 0 CRITICAL correctness（r35-r52）。
 
 ---
 
@@ -109,8 +109,8 @@ scripts/         verify_docs_claims.py / verify_workflow.py / install_hooks.sh
 | 修改翻译模式 / 流水线 / 校验链 / 引擎 / 测试体系 | [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) |
 | 调整阈值常量 / 校验规则 / 路线图 | [docs/REFERENCE.md](docs/REFERENCE.md) |
 | 当前 build / 数字 / 推荐下一步 | [HANDOFF.md](HANDOFF.md) |
-| 历史决策（r1-r51） | [_archive/EVOLUTION.md](_archive/EVOLUTION.md) |
-| 最近 5 轮详细变更（r47-r51） | [_archive/CHANGELOG_RECENT_r51.md](_archive/CHANGELOG_RECENT_r51.md) |
+| 历史决策（r1-r52） | [_archive/EVOLUTION.md](_archive/EVOLUTION.md) |
+| 最近 5 轮详细变更（r48-r52） | [_archive/CHANGELOG_RECENT_r52.md](_archive/CHANGELOG_RECENT_r52.md) |
 | 用户面文档（中英双语） | [README.md](README.md) |
 
 ---
@@ -130,6 +130,6 @@ scripts/         verify_docs_claims.py / verify_workflow.py / install_hooks.sh
 1. 修改 `CLAUDE.md` 必须同步 `.cursorrules`（byte-identical 契约）
 2. 数字声称（测试数 / 文件数 / CI 步骤 / 断言点）只在 `HANDOFF.md` `VERIFIED-CLAIMS` 块声明，其他文档只引用
 3. 永远不要在文档中**直接**写测试数 / 行数 / 文件数等数字而不先 grep / wc / find / `verify_docs_claims --fast` ground-truth
-4. round 50 起所有 audit findings 同轮 fix，零 deferred（r51 第二次执行验证有效）
+4. round 50 起所有 audit findings 同轮 fix，零 deferred（r51 / r52 各 1 次执行验证有效）
 5. 大改动遵循三段式：Plan → Implement（小步） → Verify（零问题）
 6. 修改 logger namespace / repo URL self-references 必须保持 `tests/test_repo_rename_consistency.py` 4 contract tests 全 PASS；6 处 `anonymousException renpy-translator (MIT, 2024)` 上游归属永远不能被任何 sed / refactor 误删（r51 加固）

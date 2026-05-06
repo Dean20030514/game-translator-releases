@@ -146,39 +146,55 @@
 
 **连续 11 轮 0 CRITICAL correctness 保持**（r35-r51）。
 
+## 阶段十一（r52）— Scope Reduction BREAKING + 12th 0-CRITICAL Streak
+
+6 commits（C1 + C2 + C3 BREAKING + C4 BREAKING + 2 prelude），净 -3781 行（删 8 文件 + 加 1 migration script）：
+
+- **本轮触发**：用户用 START.bat 跑非中文 e2e（ja 流程）暴露 r35-r48 多语言 contract 真实大规模痛点 — `tl_mode.py:484-532` retry 单线程 + 零 progress logging（27000+ 残留 → 8-45h "卡死"）/ LLM 偶发 JSON mis-escape / stage 3 fallback miss-rate 36% / 网络中断后 stage 3-5 全部没跑。User 决定 **scope reduction**：retire dual-mode plugin + multi-target language。
+- **C1 push-status drift checker**（`scripts/verify_docs_claims.py` +3 函数 + `tests/test_verify_docs_claims_push_status.py` 7 unit tests + CI step）— catches r51 trap "L29 5 commits 待 push" but already pushed
+- **C2 build.py CI smoke**（`Run build.py smoke (import + --clean-only)` step）+ **GUI architectural decision**（reclassified 为 informational watchlist；tkinter 跨平台 headless 需 Xvfb / 违反零依赖 / ROI 低）
+- **C3 BREAKING — retire importlib plugin mode**（`core/api_plugin.py::_load_custom_engine` 65 行 + APIConfig.sandbox_plugin field + `--sandbox-plugin` flag + 6 caller sites kwarg 全删；新加 `_SubprocessPluginClient.__init__` startup readiness probe 5×20ms poll catch missing `--plugin-serve` block）
+- **C4 BREAKING — drop non-zh target language**（**最大单 commit**：37 文件 / +342 -4123）：删 `core/lang_config.py` + `tools/merge_translations_v2.py` + 6 测试文件；retire `--target-lang` flag + multi-language outer loop + 5 层 contract（prompt per-lang / alias-read / checker per-lang / zh-tw 隔离 / generic fallback）+ DB v2 schema + runtime-hook v2 schema + ProgressTracker language namespace；hardcode `args.target_lang = "zh"`；加 `scripts/migrate_db_v2_to_v1.py` 迁移工具
+- **zh sanity validation（A3）**：用户跑 The Tyrant 项目 74098 entries → 99.991% 成功 / 0.0013% drop / 0.27% retry residual / 129.4 min / $2.40。**对比 ja 路径**：W1 retry 单线程在 zh 上 7 min 无感 vs ja 8-45h；W2 JSON mis-escape 在 zh 上 0 触发 vs ja 多次；W3 stage 3 fallback miss 在 zh 上 0.27% vs ja 36%。reduction scope 后**严重模式永远不再触发**到生产痛点。
+- **W1-W4 actionable 升级**：r52 末用户决定升级 4 informational watchlist 到 r53 actionable backlog（即使 zh 路径不痛也作为长期稳健性 r53 工作落地）
+
+**连续 12 轮 0 CRITICAL correctness 保持**（r35-r52）。
+
 ---
 
-## 累积技术资产（r1-r51 视角）
+## 累积技术资产（r1-r52 视角）
 
 ### 翻译能力
 - 三种 Ren'Py 翻译模式（direct / tl / retranslate） + screen 补充
 - 三种引擎（Ren'Py / RPG Maker MV-MZ / CSV-JSONL 通用）
-- 五大 LLM provider + 自定义引擎插件（dual-mode：importlib 快路径 + subprocess 沙箱）
-- 多语言（zh / zh-tw / ja / ko）端到端栈：prompt + alias chain + checker per-language + zh-tw 隔离 + generic fallback **5 层契约**
+- 五大 LLM provider + 自定义引擎插件（**round 52 C3 BREAKING：subprocess sandbox-only**，importlib in-process loader retired）
+- **目标语言：zh 简体中文 only**（round 52 C4 BREAKING：r35-r48 多语言 5 层 contract 完全删除；源语言不限 — LLM 自动识别）
 
 ### 质量保障链
 - 占位符保护 + ResponseChecker + 50+ 项 validate_translation
-- 漏翻率 12.12% → 4.01%（direct）/ 99.97% 翻译成功率（tl）
+- 漏翻率 12.12% → 4.01%（direct）/ 99.97% → **99.991% 翻译成功率**（tl-mode；r52 实测 The Tyrant 74098 entries / 0.0013% checker drop）
 
 ### 架构健康度
 - 所有源 .py < 800 行（pre-commit 自动 enforce）
 - 26 sites / 12 modules 全 TOCTOU MITIGATED
 - 23/23 user-facing JSON loader OOM cap 全覆盖
 - 3 处 pickle 全白名单（pickle_safe + rpyc Tier 1+2 + rpa_unpacker）
-- 插件三通道防护（stdout 50M chars + stderr 10K + stdin lifecycle）
+- 插件**强制 subprocess sandbox**（r52 C3）+ startup readiness probe + 三通道防护（stdout 50M chars + stderr 10K + stdin lifecycle）
 - HTTPS 持久连接池（节省 ~90s / 600 次调用） + 32 MB 响应硬上限
 
 ### 自动化工程
-- CI：6 jobs（2 OS × 3 Python）× 38 steps
+- CI：6 jobs（2 OS × 3 Python）× 34 steps（r52 C4 净 -4 多 lang test runs + +2 push-status / build smoke）
 - pre-commit hook 4 件套（py_compile + 800 行 cap + meta-runner + verify_docs_claims --fast）
-- HANDOFF.md VERIFIED-CLAIMS 单一声称源（drift 不可能跨 commit 累积）
+- HANDOFF.md VERIFIED-CLAIMS 单一声称源（drift 不可能跨 commit 累积）+ **r52 C1 push-status drift check**
 - Mock target consistency CI guard（防 stale mock trap CLASS）
 - Repo rename consistency CI guard（pin 自身 repo URL refs + logger namespace + 上游归属反向 exhaustiveness）
+- **build.py CI smoke**（r52 C2：import + --clean-only）
 
-### 文档体系（r51 末）
+### 文档体系（r52 末）
 - 根目录：`README.md` / `CLAUDE.md` (= `.cursorrules`) / `HANDOFF.md` / `CHANGELOG.md` / `CONTRIBUTING.md` / `SECURITY.md`
 - `docs/`：`ARCHITECTURE.md`（架构 + 数据流 + 校验链 + 引擎指南 + 测试体系）+ `REFERENCE.md`（常量 + 错误码 + 路线图）
-- `_archive/`：本文件 + `CHANGELOG_FULL.md`（r1-r45 总览 + r19/r43 正文）+ `CHANGELOG_RECENT_r51.md` + `TEST_PLAN_r50.md`
+- `_archive/`：本文件 + `CHANGELOG_FULL.md`（r1-r45 总览 + r19/r43 正文）+ `CHANGELOG_RECENT_r52.md` + `TEST_PLAN_r50.md`
+- `scripts/`：`migrate_db_v2_to_v1.py`（r52 C4 v2 → v1 DB 迁移工具）
 
 ---
 
