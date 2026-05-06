@@ -93,7 +93,6 @@ def run_pipeline(args: argparse.Namespace) -> None:
         temperature=args.temperature,
         max_response_tokens=args.max_response_tokens,
         custom_module=getattr(args, "custom_module", ""),
-        sandbox_plugin=getattr(args, "sandbox_plugin", False),
     )
     client = APIClient(config)
     logger.info(f"[API ] 提供商: {config.provider}, 模型: {config.model}")

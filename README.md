@@ -12,7 +12,7 @@
 
 - **三种翻译模式**：direct（整文件）/ tl（框架槽位）/ retranslate（残留补翻）+ screen 补充
 - **多引擎自动检测**：Ren'Py / RPG Maker MV-MZ / CSV-JSONL，`--engine auto`
-- **五大 LLM**：xAI / OpenAI / DeepSeek / Claude / Gemini + 自定义引擎插件（可选 subprocess 沙箱）
+- **五大 LLM**：xAI / OpenAI / DeepSeek / Claude / Gemini + 自定义引擎插件（**round 52 起强制 subprocess 沙箱**）
 - **完整质量保障**：占位符保护 + ResponseChecker + 50+ 项 validate_translation
 - **多语言端到端**：zh / zh-tw / ja / ko，5 层 code-level contract
 - **GUI + CLI + 一键流水线**：Tkinter 图形界面 / 中文交互菜单 / 四阶段自动流水线
@@ -127,7 +127,7 @@ A **pure-Python** (zero third-party dependencies, Python ≥ 3.9) automatic game
 
 - **Three translation modes**: direct (whole-file) / tl (framework slots) / retranslate (residual catch-up) + screen text
 - **Multi-engine auto-detection**: Ren'Py / RPG Maker MV-MZ / CSV-JSONL, `--engine auto`
-- **Five LLM providers**: xAI / OpenAI / DeepSeek / Claude / Gemini + custom plugin (optional subprocess sandbox)
+- **Five LLM providers**: xAI / OpenAI / DeepSeek / Claude / Gemini + custom plugin (**unconditional subprocess sandbox** since round 52)
 - **Full quality chain**: placeholder protection + ResponseChecker + 50+ validate_translation rules
 - **End-to-end multilingual**: zh / zh-tw / ja / ko with 5-layer code-level contracts
 - **GUI + CLI + one-click pipeline**: Tkinter GUI / interactive CLI menu / 4-stage auto pipeline

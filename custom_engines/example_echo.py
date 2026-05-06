@@ -4,21 +4,19 @@ Example custom translation engine — echoes original text with a prefix.
 This is a minimal example showing both the batch and single-item interfaces.
 Place your custom engine in this directory (custom_engines/) and use it with:
 
-    # Legacy in-process mode (backward compatible):
     python main.py --provider custom --custom-module example_echo ...
-
-    # Opt-in subprocess sandbox (round 28 S-H-4, plugin isolated from the
-    # host process's environment variables / file system / network):
-    python main.py --provider custom --custom-module example_echo --sandbox-plugin ...
 
 Your module must implement at least one of:
     - translate_batch(system_prompt, user_prompt) -> str | list[dict]
     - translate(text, source_lang, target_lang) -> str
 
-For subprocess-sandbox compatibility, keep the ``if __name__ == "__main__":``
-block below — it implements the JSONL protocol the host uses to feed the
-plugin over stdin / stdout (one request per line, one response per line).
-Plugins that omit the ``__main__`` block still work in legacy mode.
+Round 52 BREAKING contract: every custom plugin runs in a subprocess
+sandbox unconditionally (the legacy importlib in-process loader was
+retired).  The ``if __name__ == "__main__":`` block below is REQUIRED
+— it implements the JSONL protocol the host uses to feed the plugin
+over stdin / stdout (one request per line, one response per line).
+Plugins that omit this block fail at startup with migration guidance
+(see core/api_plugin.py readiness probe).
 """
 
 import json
@@ -114,7 +112,8 @@ if __name__ == "__main__":
         print(
             "This is a translation plugin. Invoke via:\n"
             "  python main.py --provider custom --custom-module example_echo ...\n"
-            "Or with --sandbox-plugin for subprocess isolation.",
+            "(Round 52+ runs every plugin in a subprocess sandbox; the "
+            "host launches this file with --plugin-serve.)",
             file=sys.stderr,
         )
         sys.exit(1)

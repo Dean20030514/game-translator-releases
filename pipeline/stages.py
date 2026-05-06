@@ -78,7 +78,6 @@ def _run_retranslate_phase(
         temperature=0.1,
         max_response_tokens=args.max_response_tokens,
         custom_module=getattr(args, "custom_module", ""),
-        sandbox_plugin=getattr(args, "sandbox_plugin", False),
     )
     rt_client = _APIClient(rt_config)
 

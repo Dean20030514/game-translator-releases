@@ -240,7 +240,6 @@ def run_generic_pipeline(engine, args) -> None:
     config = APIConfig(
         provider=provider, model=model, api_key=api_key,
         custom_module=getattr(args, 'custom_module', '') or '',
-        sandbox_plugin=getattr(args, 'sandbox_plugin', False),
     )
     config.timeout = getattr(args, 'timeout', 180.0) or 180.0
     config.temperature = getattr(args, 'temperature', 0.1) or 0.1

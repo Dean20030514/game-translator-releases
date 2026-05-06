@@ -1,54 +1,61 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""Custom translation plugin loader — in-process + sandboxed subprocess modes.
+"""Custom translation plugin loader — sandbox-only subprocess mode.
 
 Split from ``core/api_client.py`` in round 40 as one of four pre-existing
-> 800-line source files flagged by HANDOFF r39→40.  The plugin-loading
-surface (``_load_custom_engine`` for legacy ``importlib`` mode +
-``_SubprocessPluginClient`` for round 28 S-H-4 sandbox mode) is a
-self-contained slice — ~320 lines around a clear concern (how a
-third-party plugin is loaded and talked to) — so extracting it keeps
-``api_client.py`` under the CLAUDE.md 800-line soft limit without
-touching provider dispatch or the APIClient core.
+> 800-line source files flagged by HANDOFF r39→40.  Round 52 BREAKING
+retired the legacy ``importlib`` in-process loader (``_load_custom_engine``)
+— every custom plugin now runs in a sandboxed subprocess via
+:class:`_SubprocessPluginClient`.  Public API is re-exported from
+:mod:`core.api_client`.
 
-Public API is re-exported from :mod:`core.api_client` so existing
-callers / tests (``tests/test_custom_engine.py`` imports both symbols
-by the old name) continue to work unchanged.
+Plugin runs in a separate interpreter invoked with
+``python -u <plugin>.py --plugin-serve``.  Host and plugin exchange
+JSONL messages over stdin / stdout.  Reuses a single child across
+every chunk translation so the startup cost (~100-150ms) is
+amortised.  10 KB stderr read cap (round 30) prevents a pathological
+plugin from OOMing the host with an exception-message flood.
 
-Two plugin modes:
-
-1. **``importlib`` (legacy, :func:`_load_custom_engine`)**: plugin
-   module is loaded directly into the host process.  Fast but shares
-   the host's heap and file descriptors.  The plugin module must
-   expose ``translate_batch(system_prompt, user_prompt)`` or the
-   per-item ``translate(text, source_lang, target_lang)``.
-
-2. **Subprocess sandbox (round 28 S-H-4,
-   :class:`_SubprocessPluginClient`)**: plugin runs in a separate
-   interpreter invoked with ``python -u <plugin>.py --plugin-serve``.
-   Host and plugin exchange JSONL messages over stdin / stdout.
-   Reuses a single child across every chunk translation so the
-   startup cost is amortised.  10 KB stderr read cap (round 30)
-   prevents a pathological plugin from OOMing the host with an
-   exception-message flood.
+Migration from importlib mode (pre-round-52):
+  * Plugin file must expose ``translate_batch(system_prompt, user_prompt)``
+    or the per-item ``translate(text, source_lang, target_lang)``.
+  * Plugin file must include an ``if __name__ == "__main__":`` block
+    that handles the ``--plugin-serve`` argv and runs a JSONL serve
+    loop reading requests from stdin and writing responses to stdout.
+  * See ``custom_engines/example_echo.py`` for the canonical template.
+  * Plugins lacking the serve block trigger an immediate startup
+    failure with migration guidance via the readiness probe in
+    :meth:`_SubprocessPluginClient.__init__`.
 """
 
 from __future__ import annotations
 
 import atexit
-import importlib.util
 import json
 import logging
 import subprocess
 import sys
 import threading
+import time
 from pathlib import Path
-from typing import Any
 
 logger = logging.getLogger(__name__)
 
 
 _CUSTOM_ENGINES_DIR = "custom_engines"
+
+# Round 52: readiness probe after subprocess launch.  A plugin that
+# lacks the ``--plugin-serve`` block exits immediately (exit 1 with
+# the "This is a translation plugin..." stderr printed by the
+# example_echo template).  Polling for early exit catches that case
+# at __init__ time, surfacing migration guidance before the first
+# translate() call rather than deferring the diagnostic.
+#
+# 5 polls * 20ms = ~100ms ceiling; well-formed plugins never trip
+# this because the JSONL serve loop blocks on stdin reading and
+# stays alive indefinitely.
+_STARTUP_PROBE_POLL_COUNT = 5
+_STARTUP_PROBE_POLL_INTERVAL = 0.02
 
 # Round 43 audit-tail: per-line cap on the subprocess stdout response.
 # ``_SubprocessPluginClient`` reads plugin stdout one line at a time
@@ -68,94 +75,19 @@ _CUSTOM_ENGINES_DIR = "custom_engines"
 # acceptable defensive coverage for the OOM DoS threat the cap was
 # added to address (host has GB-range RAM; 150 MB is manageable), but
 # the variable name previously claimed BYTES and was therefore
-# misleading.  :data:`_MAX_PLUGIN_RESPONSE_CHARS` is the canonical
-# name; :data:`_MAX_PLUGIN_RESPONSE_BYTES` is retained as a deprecated
-# alias so r43's existing test doesn't break.  Legitimate batch
-# responses are typically < 1 MB of JSON either way.
+# misleading.  Legitimate batch responses are typically < 1 MB of JSON.
 _MAX_PLUGIN_RESPONSE_CHARS = 50 * 1024 * 1024
-
-# Deprecated alias kept for backward compatibility with round-43 test
-# that patches this name via ``mock.patch.object``.  New code should
-# use ``_MAX_PLUGIN_RESPONSE_CHARS`` above.
-_MAX_PLUGIN_RESPONSE_BYTES = _MAX_PLUGIN_RESPONSE_CHARS
-
-
-def _load_custom_engine(module_name: str) -> Any:
-    """Load a custom translation engine module from ``custom_engines/`` directory.
-
-    Security: Only loads from the ``custom_engines/`` subdirectory relative to the
-    project root (the directory containing ``main.py``).  Arbitrary paths are
-    rejected.  Users should only use modules from trusted sources.
-
-    The module must implement at least one of:
-        - ``translate_batch(system_prompt, user_prompt) -> str | list[dict]``
-          (preferred — receives the full prompt, returns JSON array)
-        - ``translate(text, source_lang, target_lang) -> str``
-          (fallback — called per-item, results assembled into JSON array)
-
-    Args:
-        module_name: Module filename (e.g. ``"my_engine.py"`` or ``"my_engine"``).
-
-    Returns:
-        Loaded module object.
-
-    Raises:
-        RuntimeError: If the module cannot be found or loaded.
-    """
-    if not module_name:
-        raise RuntimeError(
-            "自定义引擎需要指定模块名: --custom-module <模块名>\n"
-            f"模块文件应放在项目目录的 {_CUSTOM_ENGINES_DIR}/ 子目录下"
-        )
-
-    # Resolve to custom_engines/ under the project root
-    project_root = Path(__file__).resolve().parent.parent
-    engines_dir = project_root / _CUSTOM_ENGINES_DIR
-
-    # Strip .py extension if present
-    if module_name.endswith(".py"):
-        module_name = module_name[:-3]
-
-    # Security: reject path separators — must be a simple filename
-    if "/" in module_name or "\\" in module_name or ".." in module_name:
-        raise RuntimeError(
-            f"自定义引擎模块名不能包含路径分隔符: '{module_name}'\n"
-            f"请将模块文件放在 {engines_dir}/ 目录下，然后只传文件名"
-        )
-
-    module_path = engines_dir / f"{module_name}.py"
-    if not module_path.is_file():
-        raise RuntimeError(
-            f"自定义引擎模块未找到: {module_path}\n"
-            f"请在 {engines_dir}/ 目录下创建 {module_name}.py 文件"
-        )
-
-    spec = importlib.util.spec_from_file_location(f"custom_engines.{module_name}", module_path)
-    if spec is None or spec.loader is None:
-        raise RuntimeError(f"无法加载自定义引擎模块: {module_path}")
-
-    mod = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(mod)
-
-    # Validate interface
-    if not hasattr(mod, "translate_batch") and not hasattr(mod, "translate"):
-        raise RuntimeError(
-            f"自定义引擎模块 {module_name} 必须实现 translate_batch() 或 translate() 函数"
-        )
-
-    logger.info("[API] 已加载自定义引擎: %s", module_path)
-    return mod
 
 
 class _SubprocessPluginClient:
     """Long-running subprocess wrapper for custom translation plugins.
 
-    Round 28 S-H-4: when ``--sandbox-plugin`` is enabled, custom plugins are
-    invoked through an out-of-process JSONL protocol rather than loaded via
-    ``importlib``.  That denies the plugin direct access to the host's
-    environment variables, file descriptors, and heap, while keeping
-    latency acceptable by reusing a single child interpreter across every
-    chunk translation.
+    Round 28 introduced the subprocess sandbox as opt-in (``--sandbox-plugin``).
+    Round 52 BREAKING made it the only mode — custom plugins are now
+    always invoked through an out-of-process JSONL protocol.  That denies
+    the plugin direct access to the host's environment variables, file
+    descriptors, and heap, while keeping latency acceptable by reusing a
+    single child interpreter across every chunk translation.
 
     Protocol (newline-delimited JSON, one object per line):
 
@@ -168,8 +100,8 @@ class _SubprocessPluginClient:
     The plugin module's ``__main__`` block is responsible for reading
     stdin, dispatching to ``translate_batch`` / ``translate``, and writing
     the JSON line to stdout (flushed).  ``custom_engines/example_echo.py``
-    demonstrates the canonical shape; new plugins should follow the same
-    pattern so they work in either mode.
+    demonstrates the canonical shape; plugins lacking the serve block
+    fail at __init__ time via the startup readiness probe.
     """
 
     _SHUTDOWN_REQUEST_ID = -1
@@ -233,6 +165,29 @@ class _SubprocessPluginClient:
                 "[API] 沙箱模式启动自定义引擎子进程: %s (pid=%s)",
                 module_path, self._proc.pid,
             )
+            # Round 52: readiness probe.  A plugin missing the
+            # ``--plugin-serve`` block exits immediately (typically
+            # exit 1 with the example_echo template's "This is a
+            # translation plugin..." stderr).  Polling for early
+            # exit at __init__ surfaces the migration error before
+            # any translate() call is dispatched.
+            for _ in range(_STARTUP_PROBE_POLL_COUNT):
+                if self._proc.poll() is not None:
+                    stderr_tail = ""
+                    try:
+                        stderr_tail = (self._proc.stderr.read(10_000) or "")[-600:]
+                    except (OSError, ValueError):
+                        pass
+                    raise RuntimeError(
+                        f"自定义引擎子进程在启动后立即退出 "
+                        f"(exit={self._proc.returncode}): {stderr_tail}\n"
+                        f"\n"
+                        f"自 round 52 起所有 custom plugin 强制走 subprocess 沙箱，\n"
+                        f"plugin 必须在 if __name__ == '__main__': block 中处理\n"
+                        f"--plugin-serve 参数并运行 JSONL 协议 serve loop。\n"
+                        f"参考 custom_engines/example_echo.py 的 _plugin_serve()。"
+                    )
+                time.sleep(_STARTUP_PROBE_POLL_INTERVAL)
             # Best-effort cleanup when the process interpreter exits without
             # an explicit close() call (e.g. KeyboardInterrupt paths).
             atexit.register(self._shutdown_quietly)

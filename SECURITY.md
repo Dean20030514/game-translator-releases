@@ -46,7 +46,7 @@ Loading a malicious RPA / rpyc archive **must not** lead to arbitrary code execu
 | RPA 解包路径校验 | `tools/rpa_unpacker.unpack_rpa` | ZIP-Slip 防护 |
 | Tier 2 rpyc 加载 | `tools/rpyc_decompiler._RestrictedUnpickler` | 白名单 + renpy/store 类映射到无害 stub |
 | Tier 1 rpyc 子进程 | `_DECOMPILE_HELPER_SCRIPT` | 内联 `_SafeUnpickler` 防游戏自带 Python 内 RCE |
-| Plugin sandbox | `core/api_plugin._SubprocessPluginClient` | opt-in subprocess + JSONL 隔离（`--sandbox-plugin`） |
+| Plugin sandbox | `core/api_plugin._SubprocessPluginClient` | **强制 subprocess + JSONL 隔离**（r52 BREAKING：不再支持 importlib in-process loader） |
 | Plugin stdout cap | 50M chars | DoS 防御（CJK 响应最坏 ~150 MB） |
 | Plugin stderr cap | 10 KB chars | 防 OOM crash-diag |
 | HTTPS 响应体上限 | `core/http_pool.py` `MAX_API_RESPONSE_BYTES = 32 MB` | 防被劫持 endpoint 流式无限数据 |
@@ -56,7 +56,7 @@ Loading a malicious RPA / rpyc archive **must not** lead to arbitrary code execu
 
 ## Known Constraints / 已知限制
 
-- **Custom plugins** (`custom_engines/`) 默认以主进程权限运行；使用 `--sandbox-plugin` 启用 subprocess 隔离
+- **Custom plugins** (`custom_engines/`) — round 52 起强制 subprocess 沙箱（denies plugin 直接访问 host env vars / file descriptors / heap）；plugin 必须实现 `_plugin_serve()` JSONL 协议
 - **Tier 1 rpyc decompilation** 启动游戏自带 Python 子进程，子进程继承父进程环境变量
 - **LLM translation output** 经过校验但未沙箱化；理论上恶意 provider 可构造绕过校验但语法合法的脚本
 - **PyInstaller exe** 未代码签名，Windows SmartScreen 首次运行可能告警

@@ -36,7 +36,6 @@ from core.api_client import (
     APIConfig,
     APIClient,
     _SubprocessPluginClient,
-    _load_custom_engine,
 )
 
 

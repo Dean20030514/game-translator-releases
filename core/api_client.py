@@ -120,10 +120,7 @@ def is_reasoning_model(model: str) -> bool:
 #
 # Re-exported so callers / tests that used to import these symbols
 # from core.api_client continue to work unchanged.
-from core.api_plugin import (
-    _load_custom_engine,
-    _SubprocessPluginClient,
-)
+from core.api_plugin import _SubprocessPluginClient
 
 @dataclass
 class APIConfig:
@@ -138,14 +135,11 @@ class APIConfig:
     max_retries: int = 5
     max_response_tokens: int = 32768
     custom_module: str = ""  # 自定义翻译引擎模块名（仅 provider="custom" 时使用）
-    # Round 28 S-H-4 opt-in subprocess sandbox for custom plugins.
-    # Default False keeps the historical ``importlib`` fast-path; passing
-    # ``--sandbox-plugin`` on the CLI (plumbed through by every caller
-    # that propagates ``custom_module``) launches the plugin in a
-    # long-running subprocess that talks JSONL over stdin/stdout,
-    # denying the plugin in-process access to env vars, file system,
-    # and network.
-    sandbox_plugin: bool = False
+    # Round 52 BREAKING: sandbox_plugin field retired.  All custom plugins
+    # now run in subprocess sandbox unconditionally — the host no longer
+    # offers in-process loading.  See core/api_plugin.py module docstring
+    # for the migration contract (plugin must include __main__ block
+    # with _plugin_serve() handling --plugin-serve argv).
     # 持久 HTTPS 连接复用（True=thread-local pool, False=每次新建 urllib 连接）。
     # 默认启用：典型游戏 600 次 API 调用可节省 ~90s 的 TCP+TLS 握手时间。
     # 若遇到兼容问题可通过配置文件设置 "use_connection_pool": false 回退。
@@ -290,16 +284,14 @@ class APIClient:
         self.usage = UsageStats(config.provider, config.model)
         self._custom_module = None
         if config.provider.lower() == "custom":
-            if config.sandbox_plugin:
-                # Round 28 S-H-4: opt-in subprocess sandbox.  The returned
-                # ``_SubprocessPluginClient`` is duck-typed as a plugin
-                # module (exposes ``translate_batch``) so the rest of this
-                # file continues to work unchanged.
-                self._custom_module = _SubprocessPluginClient(
-                    config.custom_module, timeout=config.timeout,
-                )
-            else:
-                self._custom_module = _load_custom_engine(config.custom_module)
+            # Round 52 BREAKING: importlib in-process loader retired.
+            # All custom plugins run in a sandboxed subprocess.  The
+            # returned ``_SubprocessPluginClient`` is duck-typed as a
+            # plugin module (exposes ``translate_batch``) so the rest
+            # of this file continues to work unchanged.
+            self._custom_module = _SubprocessPluginClient(
+                config.custom_module, timeout=config.timeout,
+            )
         # 持久连接池（仅 HTTPS 端点；custom provider 不走 HTTP 所以也不需要）
         self._pool = None
         if config.use_connection_pool and config.provider.lower() != "custom":

@@ -1,10 +1,10 @@
 # HANDOFF — Round 51 末 → Round 52 起点
 
 <!-- VERIFIED-CLAIMS-START -->
-tests_total: 514
+tests_total: 508
 test_files: 36
 ci_steps: 40
-assertion_points: 640
+assertion_points: 634
 <!-- VERIFIED-CLAIMS-END -->
 
 > **上方 fenced 块是声明数字的唯一位置**。其他文档（`CLAUDE.md` / `.cursorrules` / `CHANGELOG.md` / `_archive/EVOLUTION.md` / `README.md` 等）只能引用这些数字，**不能重新声明**。`scripts/verify_docs_claims.py` 在 pre-commit hook 自动检查，drift fails the commit。
@@ -40,7 +40,7 @@ assertion_points: 640
 | 大文件（> 800 行） | ✅ 全 .py < 800（pre-commit + verify_docs_claims --fast 自动 enforce） |
 | 数据完整性 | ✅ TranslationDB 线程安全（RLock）+ 原子写入（os.replace）+ schema v2 partial backfill |
 | 反序列化安全 | ✅ 3 处 pickle 全白名单（`core/pickle_safe.py` + rpyc Tier 1+2 + rpa_unpacker） |
-| 插件沙箱 | ✅ Dual-mode（importlib 快路径 + opt-in subprocess）+ 三通道防护（stdout 50M chars + stderr 10K + stdin lifecycle） |
+| 插件沙箱 | ✅ **Subprocess 强制沙箱**（r52 BREAKING retire importlib）+ 启动期 readiness probe + 三通道防护（stdout 50M chars + stderr 10K + stdin lifecycle） |
 | 多语言完整栈 | ✅ 5 层 code-level contract（prompt + alias-read + checker + zh-tw 隔离 + generic fallback） |
 | OOM 防护 | ✅ 23/23 user-facing path-stat + 26 sites / 12 modules TOCTOU MITIGATED via `core.file_safety` 共享 helper |
 | Mock target stale trap | ✅ CI grep step 兜底（防 r48 trap CLASS 复发；r50 C4 filter 放宽到 `file_safety` 兼容 qualified form；r51 audit-tail 加第三级 `test_repo_rename_consistency` filter 豁免 documentation-only 文件 self-trip） |
@@ -65,7 +65,7 @@ assertion_points: 640
 4. **非中文目标语言端到端验证**（生产 ja / ko / zh-tw） — r39-r48 多层契约已锁死
 5. **A-H-3 Medium**：adapter 让 Ren'Py 走 generic_pipeline 6 阶段
 6. **A-H-3 Deep**：完全退役 DialogueEntry
-7. **S-H-4 Breaking**：强制所有 plugins 走 subprocess
+7. ~~**S-H-4 Breaking**：强制所有 plugins 走 subprocess~~ — **r52 C3 完成**（commit see git log；importlib 完全 retire + readiness probe at __init__）
 8. **RPG Maker Plugin Commands (code 356)**
 9. **加密 RPA / RGSS 归档**
 

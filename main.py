@@ -113,10 +113,9 @@ def main():
     parser.add_argument("--provider", default=None, choices=['xai', 'grok', 'openai', 'deepseek', 'claude', 'gemini', 'custom'],
                         help="API 提供商（custom 需配合 --custom-module 使用）")
     parser.add_argument("--custom-module", default="", metavar="NAME",
-                        help="自定义翻译引擎模块名（位于 custom_engines/ 目录，如 my_engine）")
-    parser.add_argument("--sandbox-plugin", action="store_true",
-                        help="将自定义插件运行在独立子进程中（opt-in 沙箱；"
-                             "默认关闭保持历史 importlib 快路径）")
+                        help="自定义翻译引擎模块名（位于 custom_engines/ 目录，如 my_engine）。"
+                             "自 round 52 起，所有 custom plugin 自动走 subprocess 沙箱；"
+                             "plugin 文件必须实现 _plugin_serve() 处理 --plugin-serve 参数（参考 example_echo.py）")
     parser.add_argument("--emit-runtime-hook", action="store_true",
                         help="在输出目录额外生成 translations.json + "
                              "zz_tl_inject_hook.rpy，供运行时注入模式使用（opt-in）。"
