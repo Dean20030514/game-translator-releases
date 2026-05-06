@@ -3,7 +3,7 @@
 <!-- VERIFIED-CLAIMS-START -->
 tests_total: 514
 test_files: 36
-ci_steps: 39
+ci_steps: 40
 assertion_points: 640
 <!-- VERIFIED-CLAIMS-END -->
 

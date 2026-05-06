@@ -92,7 +92,8 @@ scripts/         verify_docs_claims.py / verify_workflow.py / install_hooks.sh
 
 ## 已知限制
 
-- GUI / build 仅手动测试，未纳入自动化
+- **build.py**：CI 跑 smoke gate（`import build` + `--clean-only`）；完整 PyInstaller 打包仍仅手动测（CI 装 PyInstaller + 跑全量打包成本高，且产物 .exe 在 CI 验证有限）
+- **GUI 自动化** — **architectural decision，not actionable debt**：tkinter 跨平台 headless 需 Xvfb（Linux only）或 `pyvirtualdisplay`（违反零依赖契约），Windows 无 Xvfb 等价。ROI 低 + 跨平台覆盖不全。保留为 informational watchlist；如未来引入纯 stdlib 的 GUI mock 框架可重新评估
 - 端到端测试需 API key，未进入 CI
 - RPG Maker Plugin Commands(356) / JS 硬编码 / 加密归档暂不支持
 - 非中文目标语言（ja / ko / zh-tw）有 5 层 code-level contract 锁死，但端到端验证仍需真实 API + 游戏

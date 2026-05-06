@@ -261,6 +261,19 @@ jobs:
           fi
           echo "OK: all os.fstat mocks correctly target file_safety module"
 
+      # Round 52 C2: build.py smoke gate.  Production code path is
+      # PyInstaller-driven (heavy, not in CI), but the build script
+      # itself is pure stdlib (shutil/subprocess/sys/pathlib) and can
+      # exercise its --clean-only branch without PyInstaller installed.
+      # Catches regressions in the build wrapper (import errors, broken
+      # CLI parsing, accidental third-party dep leak).  GUI automation
+      # remains an architectural decision — see CLAUDE.md "已知限制".
+      - name: Run build.py smoke (import + --clean-only)
+        shell: bash
+        run: |
+          python -c "import build; print('build.py imports OK')"
+          python build.py --clean-only
+
       - name: Verify zero third-party dependencies
         shell: bash
         run: |
