@@ -34,5 +34,13 @@ resources/fonts/*.otf
 # User config (do not commit; use renpy_translate.example.json as template)
 renpy_translate.json
 
+# Secret materials (Round 57 S1 — defense in depth)
+.env
+.env.*
+*.key
+*.pem
+api_keys.json
+secrets.json
+
 # Large test artifacts
 tests/artifacts/tyrant_untranslated.json

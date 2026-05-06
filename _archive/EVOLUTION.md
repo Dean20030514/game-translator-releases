@@ -240,9 +240,36 @@
 
 **连续 16 轮 0 CRITICAL correctness 保持**（r35-r56）。
 
+## 阶段十六（r57）— 6 维度深度债务审计 + 技术债 / 质量与安全债全闭合 + 17th 0-CRITICAL Streak
+
+6 phases，覆盖 r56 末用户提出的"还有没有其他的技术债 / 质量与安全债 / 架构与设计债 / 流程与文档债 / 产品与业务债 / 组织与知识债"6 大维度审计：
+
+- **本轮触发**：r56 已完成代码卫生面 audit（11 findings 全 fix）；用户提出更深层 6 维度审计请求。本轮先扫描 6 维度共 23 findings（4 HIGH / 9 MEDIUM / 10 LOW），然后**优先推进维度 1 (技术债 T1-T4) + 维度 2 (质量与安全债 S1-S4) 共 8 项**。剩余 4 维度（A1-A3 / P1-P4 / B1-B4 / O1-O4）保留给 r58+。审计全程留底 `AUDIT_R57.md`（项目根目录）。
+- **T1 — Python 版本契约统一**（HIGH）：`pyproject.toml requires-python = ">=3.10"`；CI matrix `[3.9, 3.12, 3.13]` → `[3.10, 3.12, 3.13]`；CLAUDE.md 模块图 + README 中英 + CONTRIBUTING 中英 全部 "Python ≥ 3.9" → "Python ≥ 3.10"。根因：项目 7 个文件用 PEP 604 `int \| None` 语法，运行时仅 3.10+ 支持；3.9 仅 `from __future__ import annotations` 才能 lazy eval — 任何 missing future import 的文件在 3.9 都 ImportError，是 silent latent bug。
+- **T2 — Mypy informational → enforce**（MEDIUM）：CI step 移除 `\|\| true` + `continue-on-error: true`；6 文件 scope (`core/translation_utils.py / core/config.py / file_processor/ / core/api_client.py / core/glossary.py / core/translation_db.py`) 实测 32 errors 全 fix：
+  - 21 `core/api_plugin.py` `Optional[Popen[str]]` access — 加 `# type: ignore[union-attr]` 标记 runtime-safe（self._proc 仅 init 期短暂 None）
+  - 2 `core/translation_db.py` 加 `Optional` typing import
+  - 6 `file_processor/splitter.py` chunks 加 `list[dict[str, Any]]` type hint + `read_file` 签名 `object` → `Union[str, Path]`
+  - 1 `file_processor/checker.py` `rv` 加 `tuple[str, list]` annotation
+  - 2 `core/api_client.py::RateLimiter.acquire` 重命名 minute_counts 循环变量 (k → m_key) 避免与上面 second_counts int-keyed 循环冲突的 mypy 类型推断
+- **T3 — Complex fixture 集成测试**（MEDIUM）：`tests/test_complex_fixture.py` 新建 — synthetic 复杂 .rpy fixture（6 dialogue 块覆盖 nvl_clear / nvl_narrator 块 / multi-line `\\n` 内嵌 say / `{i}` `{b}` `{color=#fa0}` `{size=+4}` 标签 / `[name]` `[item_count]` 变量 / 转义引号 `\\\"...\\\"` / SAZMOD 模组路径 + 3 string 块覆盖 `Save` `Load` 嵌套标签 New Game）+ 2 集成测试（scan extracts 6+3 entries / fill round-trip 保留所有注释空行 + 6 dialogue + 3 strings 全部 fill）。补 `_TL_EMPTY_FIXTURE`（4 简单 entries）与 r52 实测 74098 entries 的 fixture 复杂度差距。
+- **T4 — `tools/` 散乱无共享 base** retire to architectural decision（LOW）：CLAUDE.md "已知限制" 段记录。15 CLI tool 各自 entry 是项目第 8 原则"最小改动"接受的代价；如未来需批量 cross-tool feature（如 `--dry-run` for all）再 reconsider。
+- **S1 — `.gitignore` secret patterns**（MEDIUM）：加 `.env` / `.env.*` / `*.key` / `*.pem` / `api_keys.json` / `secrets.json`（`renpy_translate.json` + `*.bak` 已存在）。defense-in-depth 防止开发者 `git add .` 误传 API key。
+- **S2 — `_sanitize_user_path` path traversal 防护**（MEDIUM）：`main.py` 新加 helper + `_FORBIDDEN_PATH_PREFIXES` 元组（POSIX `/etc/` `/sys/` `/proc/` `/dev/` `/root/` `/boot/` `/var/log/` `/var/run/` + Windows `c:/windows/` `c:/program files/` `c:/program files (x86)/` `c:/programdata/` `c:/system volume information/` + `/etc/passwd` `/etc/shadow`）。main() 调 sanitize args.game_dir 和 args.config（如非空）。3 测试覆盖（forbidden resolved path mock / Windows System32 mock / legitimate path passthrough）。本地 single-user 工具威胁模型不变，主要 protect 多用户共享环境（CI runner / 教学 / 实验室）。
+- **S3 — Log injection** retire to architectural decision（LOW）：CLAUDE.md "已知限制" 段记录。15 处 `logger.error(f"...{user_var}...")`，本地工具仅写 stdout 无集中日志（syslog / Sentry），不构成 actionable；如未来引入需 sanitize user vars 中的换行符。
+- **S4 — `.rpy` escape fuzz 测试**（LOW，但用户选 fix）：`tests/test_file_processor.py` 加 2 测试覆盖 `_escape_for_renpy_string`：fuzz with 12 adversarial LLM payloads（bare `"` / `\\` / `\\"` / `\\\\` / `"""` / 混合 `"` 和 `\\` / 三种行尾混排 / 1000+ 字符 / NUL char / tab / 非 ASCII + quotes / 空字符串）+ property-based 不变量断言（escape 后所有 `"` 必有奇数前导反斜杠 / 无裸 `\\r` 泄漏 / 函数不崩）+ idempotence 测试（safe input 不被错误重转义）。
+- **数字增量**：tests_total 485 → 492 (+7: 3 S2 + 2 S4 + 2 T3); test_files 33 → 34 (+1: `test_complex_fixture.py`); ci_steps 34 unchanged; assertion_points 611 → 618 (+7)。
+- **13 hard contracts → 16**（CLAUDE.md / .cursorrules / HANDOFF Round 58 关键约束）：
+  - **mypy enforce contract**：6 文件 scope 必须保持 0 errors；新文件加入 scope 前必须先 mypy clean
+  - **Python ≥ 3.10 contract**：retreating to 3.9 需 plan-first（PEP 604 已广泛使用）
+  - **Path traversal contract**：`_FORBIDDEN_PATH_PREFIXES` 不可放宽，任何新 user-supplied path 入口经 `_sanitize_user_path`
+- **审计留底**：`AUDIT_R57.md`（项目根目录）保留完整 6 维度 23 findings 报告 + 4 fix 路径选择（X / Y / Z / W），方便后续轮 reference。
+
+**连续 17 轮 0 CRITICAL correctness 保持**（r35-r57）。
+
 ---
 
-## 累积技术资产（r1-r56 视角）
+## 累积技术资产（r1-r57 视角）
 
 ### 翻译能力
 - 三种 Ren'Py 翻译模式（direct / tl / retranslate） + screen 补充

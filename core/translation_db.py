@@ -28,7 +28,7 @@ import json
 import os
 import threading
 from pathlib import Path
-from typing import Any, Dict, List, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 from safety.file_safety import check_fstat_size
 

@@ -8,7 +8,7 @@
 
 ### 环境
 
-- Python ≥ 3.9，**零第三方依赖**（PR 引入任何 `requirements` 或 `pip install` 会被驳回）
+- Python ≥ 3.10，**零第三方依赖**（PR 引入任何 `requirements` 或 `pip install` 会被驳回）
 - 文件编码 UTF-8（无 BOM），换行 LF（见 `.gitattributes`）
 - Windows 是主要开发环境，但代码须保证 Linux / macOS 可跑通测试
 
@@ -69,7 +69,7 @@ python scripts/verify_docs_claims.py --fast # docs claim 同步性
 
 ### Environment
 
-- Python ≥ 3.9, **zero third-party dependencies** (PRs introducing any `requirements` or `pip install` will be rejected)
+- Python ≥ 3.10, **zero third-party dependencies** (PRs introducing any `requirements` or `pip install` will be rejected)
 - Encoding UTF-8 (no BOM), line endings LF (see `.gitattributes`)
 - Windows is the primary dev environment, but code must pass tests on Linux / macOS
 

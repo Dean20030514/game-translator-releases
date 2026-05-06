@@ -79,6 +79,65 @@ def _ratio_float(value: str) -> float:
 
 
 # ============================================================
+# Round 57 S2: path-traversal sanitization
+# ============================================================
+
+# System / OS-protected directory prefixes that user-supplied paths must
+# never resolve into. Designed for defense-in-depth in multi-user shared
+# environments (lab clusters, CI runners, teaching machines); the
+# project's primary local single-user threat model is unaffected because
+# an attacker with local RW already has stronger capabilities. Prefixes
+# are normalised to forward slashes + lowercase before matching so the
+# check is case-insensitive on Windows.
+_FORBIDDEN_PATH_PREFIXES: tuple[str, ...] = (
+    # POSIX system dirs (absolute paths begin with "/")
+    "/etc/", "/sys/", "/proc/", "/dev/", "/root/", "/boot/",
+    "/var/log/", "/var/run/",
+    # Windows system dirs (Path.resolve() on Windows yields "C:\\..."
+    # which we normalise to "c:/..." with no leading slash).
+    "c:/windows/", "c:/program files/", "c:/program files (x86)/",
+    "c:/programdata/", "c:/system volume information/",
+    # Unix-style sensitive single files
+    "/etc/passwd", "/etc/shadow",
+)
+
+
+def _sanitize_user_path(raw: str, flag: str) -> Path:
+    """Resolve and validate a user-supplied filesystem path.
+
+    Round 57 S2 — defense-in-depth path-traversal guard. Rejects paths
+    that resolve into OS-protected directories listed in
+    :data:`_FORBIDDEN_PATH_PREFIXES`. Symlink-aware via ``resolve()``.
+
+    The local single-user threat model is unaffected (attacker with
+    local RW is already game over). The guard's value is in
+    multi-user / shared / CI environments where ``--game-dir`` could
+    be passed as ``../../../etc/passwd``; the resolve+prefix-check
+    ensures we refuse to even probe such paths.
+
+    Args:
+        raw: The CLI argument string (e.g. ``args.game_dir``).
+        flag: The flag name for diagnostic output (e.g. ``"--game-dir"``).
+
+    Returns:
+        The resolved absolute :class:`Path`.
+
+    Exits process via ``sys.exit(1)`` if the path resolves into a
+    forbidden directory.
+    """
+    p = Path(raw).expanduser().resolve()
+    p_norm = str(p).replace("\\", "/").lower()
+    for prefix in _FORBIDDEN_PATH_PREFIXES:
+        if p_norm.startswith(prefix.lower()) or p_norm == prefix.rstrip("/").lower():
+            logger.error(
+                f"[ERROR] {flag} 路径 {p} 落在系统保护目录 ({prefix}) — "
+                f"为防止意外破坏系统文件已拒绝执行。如这是误判，请提交 issue 说明用例。"
+            )
+            sys.exit(1)
+    return p
+
+
+# ============================================================
 # Round 53 monitor #4: symlink path-swap defense
 # ============================================================
 
@@ -227,6 +286,13 @@ def main():
     # but a visible warning catches accidental aliases on shared / mounted
     # filesystems. ``--allow-symlink`` suppresses for legitimate use.
     _maybe_warn_on_symlink(args)
+
+    # Round 57 S2: path-traversal sanitization. Reject user-supplied paths
+    # that resolve into OS-protected directories. Defense-in-depth for
+    # multi-user environments — local single-user usage is unaffected.
+    args.game_dir = str(_sanitize_user_path(args.game_dir, "--game-dir"))
+    if getattr(args, "config", "") or "":
+        args.config = str(_sanitize_user_path(args.config, "--config"))
 
     # 智能检测游戏目录
     game_dir = Path(args.game_dir)

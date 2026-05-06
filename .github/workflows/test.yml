@@ -19,7 +19,7 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, windows-latest]
-        python-version: ["3.9", "3.12", "3.13"]
+        python-version: ["3.10", "3.12", "3.13"]
 
     steps:
       - uses: actions/checkout@v4
@@ -301,12 +301,18 @@ jobs:
           print('Zero-dependency check passed')
           "
 
-      - name: Type check (informational)
+      - name: Type check (enforce; r57 T2)
         shell: bash
         run: |
           pip install mypy --break-system-packages 2>/dev/null || pip install mypy
-          mypy --ignore-missing-imports --no-error-summary core/translation_utils.py core/config.py file_processor/ core/api_client.py core/glossary.py core/translation_db.py || true
-        continue-on-error: true
+          # Round 57 T2: upgraded from "informational" to enforced.
+          # Scope is the same r51-era hot-path subset (6 files / 2 packages);
+          # any new file added here must keep mypy clean before merge.
+          # Remaining `# type: ignore[union-attr]` pragmas in core/api_plugin.py
+          # mark Optional[Popen[str]] call sites where runtime control flow
+          # guarantees non-None but mypy cannot prove it statically — see
+          # AUDIT_R57.md T2 for rationale.
+          mypy --ignore-missing-imports core/translation_utils.py core/config.py file_processor/ core/api_client.py core/glossary.py core/translation_db.py
 
       - name: Integration test (dry-run)
         run: python main.py --game-dir tests/tl_priority_mini/game --provider xai --dry-run

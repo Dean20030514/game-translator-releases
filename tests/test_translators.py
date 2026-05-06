@@ -639,6 +639,68 @@ def test_w_monitor4_allow_symlink_suppresses_warning():
     print("[OK] w_monitor4_allow_symlink_suppresses_warning")
 
 
+def test_w_round57_s2_rejects_forbidden_resolved_path():
+    """Round 57 S2: resolved path inside forbidden prefix is rejected.
+
+    Mocks Path.resolve() so the test is platform-agnostic. The real
+    cross-platform behaviour: on Linux ``/etc/passwd`` resolves to
+    itself and triggers; on Windows ``/etc/passwd`` resolves to
+    ``C:/etc/passwd`` (drive-letter prepended) which is NOT in the
+    forbidden list, so we need to mock to test the matching logic
+    rather than rely on raw input form.
+    """
+    from unittest import mock as _mock
+    from pathlib import Path as _Path
+    from main import _sanitize_user_path
+
+    fake_resolved = _Path("/etc/passwd")
+    with _mock.patch("main.Path") as MockPath:
+        instance = _mock.MagicMock()
+        instance.expanduser.return_value.resolve.return_value = fake_resolved
+        MockPath.return_value = instance
+        try:
+            _sanitize_user_path("anything", "--game-dir")
+        except SystemExit as e:
+            assert e.code == 1, f"expected exit(1), got {e.code}"
+            print("[OK] w_round57_s2_rejects_forbidden_resolved_path")
+            return
+    raise AssertionError("forbidden resolved path was NOT blocked")
+
+
+def test_w_round57_s2_rejects_windows_system32():
+    """Round 57 S2: Windows-form forbidden prefix rejection."""
+    from unittest import mock as _mock
+    from pathlib import PureWindowsPath
+    from main import _sanitize_user_path
+
+    fake_resolved = PureWindowsPath("C:\\Windows\\System32\\config\\SAM")
+    with _mock.patch("main.Path") as MockPath:
+        instance = _mock.MagicMock()
+        instance.expanduser.return_value.resolve.return_value = fake_resolved
+        MockPath.return_value = instance
+        try:
+            _sanitize_user_path("anything", "--config")
+        except SystemExit:
+            print("[OK] w_round57_s2_rejects_windows_system32")
+            return
+    raise AssertionError("Windows System32 path was NOT blocked")
+
+
+def test_w_round57_s2_allows_legitimate_user_path():
+    """Round 57 S2: legitimate user paths pass through unmolested."""
+    import tempfile
+    from pathlib import Path
+    from main import _sanitize_user_path
+
+    with tempfile.TemporaryDirectory() as td:
+        # tempfile.TemporaryDirectory sits under /tmp on Linux or %TEMP%
+        # on Windows — neither is in _FORBIDDEN_PATH_PREFIXES.
+        result = _sanitize_user_path(td, "--game-dir")
+        assert isinstance(result, Path)
+        assert result.exists()
+    print("[OK] w_round57_s2_allows_legitimate_user_path")
+
+
 def test_w_monitor4_no_warning_for_regular_path():
     """No warning when path is not a symlink (the common case)."""
     import argparse as _ap
@@ -704,6 +766,9 @@ def run_all() -> int:
         test_pipeline_imports_smoke,
         test_w_monitor4_symlink_warning_when_unflagged,
         test_w_monitor4_allow_symlink_suppresses_warning,
+        test_w_round57_s2_rejects_forbidden_resolved_path,
+        test_w_round57_s2_rejects_windows_system32,
+        test_w_round57_s2_allows_legitimate_user_path,
         test_w_monitor4_no_warning_for_regular_path,
     ]
     for t in tests:

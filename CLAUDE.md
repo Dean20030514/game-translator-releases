@@ -4,13 +4,13 @@
 
 ## 项目身份
 
-纯 Python（**零第三方依赖**，Python ≥ 3.9）多引擎游戏汉化工具。支持 Ren'Py / RPG Maker MV-MZ / CSV-JSONL，五大 LLM provider（xAI/OpenAI/DeepSeek/Claude/Gemini）+ 自定义引擎插件（**round 52 起强制 subprocess 沙箱**，importlib 模式 retired BREAKING）。
+纯 Python（**零第三方依赖**，Python ≥ 3.10）多引擎游戏汉化工具。支持 Ren'Py / RPG Maker MV-MZ / CSV-JSONL，五大 LLM provider（xAI/OpenAI/DeepSeek/Claude/Gemini）+ 自定义引擎插件（**round 52 起强制 subprocess 沙箱**，importlib 模式 retired BREAKING）。
 
 **目标语言：zh 简体中文 only**（round 52 C4 BREAKING：r35-r48 多目标语言 contract 已完全删除；ja/ko/zh-tw 输出不再支持，`--target-lang` flag retired，translation_db v2 schema retired，runtime-hook v2 schema retired，`core/lang_config.py` 删除。源语言不限——LLM 自动识别，tl-mode 天然支持任何源 → zh）。
 
 **当前数字**（测试数 / 文件数 / CI 步骤 / 断言点）：见 [HANDOFF.md](HANDOFF.md) 顶部 `<!-- VERIFIED-CLAIMS-START -->` 块 — **单一声称源**。本文 prose 不再独立声称数字。
 
-**质量水位**：direct-mode 漏翻率 4.01%（仅适用 English source，详见下方"已知限制"）；tl-mode 翻译成功率 99.97%（r52 实测 The Tyrant 74098 entries / **99.991%**）；连续 15 轮 0 CRITICAL correctness（r35-r55）。Round 55 起新增 Unity XUnity 引擎覆盖 ~10% 用户场景。
+**质量水位**：direct-mode 漏翻率 4.01%（仅适用 English source，详见下方"已知限制"）；tl-mode 翻译成功率 99.97%（r52 实测 The Tyrant 74098 entries / **99.991%**）；连续 17 轮 0 CRITICAL correctness（r35-r57）。Round 55 起新增 Unity XUnity 引擎覆盖 ~10% 用户场景。
 
 ---
 
@@ -101,6 +101,8 @@ scripts/         verify_docs_claims.py / verify_workflow.py / install_hooks.sh
 - RPG Maker Plugin Commands(356) / JS 硬编码 / 加密归档暂不支持
 - **direct-mode 仅适用英文源游戏**（r53 W4，文档化路径）：`translators/renpy_text_utils.py::MIN_ENGLISH_CHARS_FOR_UNTRANSLATED = 12` + `_is_untranslated_dialogue` 仅计 a-z 字符，硬编码英文检测假设。非英文源游戏（ja/ko/etc）请改用 tl-mode（扫描 `tl/<lang>/` 空槽位，源语言 agnostic）。direct-mode 启动时会输出 INFO log 提示此限制
 - **目标语言**：r52 C4 BREAKING 后固定 zh 简体中文（多目标语言 5 层 contract + `core/lang_config.py` + `--target-lang` 已删除）
+- **`tools/` 散乱无共享 base**（r57 T4 architectural decision）：15 个 CLI tool 各自独立 entry，每个自己写 argparse + setup_logging + path validation。**故意保留**——`tools/` 是辅助而非 hot path，抽取共享 base 的 ROI 低于"最小改动"原则的 cost。如未来需要批量加 cross-tool feature（如 `--dry-run` for all），再 reconsider
+- **Logger 含 user-controlled vars（log injection 路径）**（r57 S3 architectural decision）：15 处 `logger.error(f"...{game_dir}...")` 之类。本地工具仅写 stdout / 文件日志，无集中日志系统（syslog / Sentry），**不构成 actionable finding**。如未来引入集中日志，需 sanitize user-controlled vars 中的换行符
 
 ---
 
@@ -120,7 +122,7 @@ scripts/         verify_docs_claims.py / verify_workflow.py / install_hooks.sh
 ## 自动化与 drift 防御
 
 - **pre-commit hook 4 件套**（`scripts/install_hooks.sh` 启用）：py_compile + 800 行 cap + meta-runner + `verify_docs_claims --fast`
-- **CI**：6 jobs（matrix `[ubuntu-latest, windows-latest]` × `[3.9, 3.12, 3.13]`）
+- **CI**：6 jobs（matrix `[ubuntu-latest, windows-latest]` × `[3.10, 3.12, 3.13]`，r57 T1 起 — `pyproject.toml requires-python = ">=3.10"`）
 - **HANDOFF.md `VERIFIED-CLAIMS` 块**：唯一数字声称源，pre-commit + CI 双层 enforce
 - **Mock target consistency CI guard**：所有 `mock.patch(...os.fstat)` / `patch.object(os, "fstat", ...)` 必须 target `safety.file_safety`（r56 M2 从 `core.file_safety` 迁移；CI guard 用 fragment match `grep -v "file_safety"` 兼容两种路径）。防 stale mock trap CLASS；r50 C4 filter 放宽到 `file_safety` 兼容 qualified form；r51 audit-tail 加第三级 `test_repo_rename_consistency` filter 豁免 documentation-only 文件 self-trip
 - **Repo rename consistency CI guard**（r51 起）：`tests/test_repo_rename_consistency.py` 钉自身 repo URL refs（`pyproject.toml` + `renpy_translate.example.json`）+ logger namespace（覆盖所有 production 模块，r56 末实测 24 sites `getLogger("multi_engine_translator")`，r51 加固时 17 sites — 数字会随新模块新增自然增长，contract 是"覆盖所有 production"而非定值）+ 6 处 anonymousException 上游归属反向 exhaustiveness
@@ -138,4 +140,7 @@ scripts/         verify_docs_claims.py / verify_workflow.py / install_hooks.sh
 7. **`tl_mode.py` retry 路径必须保持并发**（r53 W1 契约）— 任何 sequential retry 重新引入必须先 plan-first
 8. **LLM ID drift detection 必须保留 layer-6**（r53 W3 契约）— 任何主 stage / retry stage 移除 `detect_id_drift()` 必须先 plan-first
 9. **Pickle 白名单不得放宽**（r53 监控 #1 verified）— 任何向 `_SAFE_BUILTINS` / `_SAFE_COLLECTIONS` / `_SAFE_CODECS` / `_SAFE_COPYREG` 添加新 entry 必须先跑 `tests/test_pickle_safe_redteam.py` 红队 audit
-10. **Unity XUnity 引擎解析契约**（r55 契约）— XUAT 行解析必须用 `str.partition('=')`（split first only），注释行 `//` 必须 round-trip preserve，正则规则 `r:"<pattern>"="<replacement>"` 翻译时 pattern 必须保留不动只翻译 replacement；任何修改解析或回写语义必须先 plan-first，并保持 `tests/test_unity_xunity_engine.py` round-trip byte-identical 测试 PASS
+10. **Unity XUnity 引擎解析契约**（r55 契约）— XAT 行解析必须用 `str.partition('=')`（split first only），注释行 `//` 必须 round-trip preserve，正则规则 `r:"<pattern>"="<replacement>"` 翻译时 pattern 必须保留不动只翻译 replacement；任何修改解析或回写语义必须先 plan-first，并保持 `tests/test_unity_xunity_engine.py` round-trip byte-identical 测试 PASS
+11. **Mypy enforce 契约**（r57 T2）— `core/translation_utils.py / core/config.py / file_processor/ / core/api_client.py / core/glossary.py / core/translation_db.py` 6 文件 scope 必须保持 mypy 0 errors；新文件加入 scope 前必须先 mypy clean；`# type: ignore[union-attr]` 仅允许标记 `core/api_plugin.py` 内 runtime-safe 的 Optional Popen 访问点
+12. **Python ≥ 3.10 契约**（r57 T1）— `pyproject.toml requires-python = ">=3.10"`；retreating to 3.9 是大重构（PEP 604 `int \| None` 语法已广泛使用），必须先 plan-first
+13. **Path traversal 防护契约**（r57 S2）— `main.py::_FORBIDDEN_PATH_PREFIXES` 不可放宽；任何新 user-supplied path 入口必须经过 `_sanitize_user_path`；本地 single-user 工具威胁模型不变，但多用户共享环境的 defense-in-depth 不可缺

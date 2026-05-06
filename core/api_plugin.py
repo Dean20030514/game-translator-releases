@@ -175,7 +175,7 @@ class _SubprocessPluginClient:
                 if self._proc.poll() is not None:
                     stderr_tail = ""
                     try:
-                        stderr_tail = (self._proc.stderr.read(10_000) or "")[-600:]
+                        stderr_tail = (self._proc.stderr.read(10_000) or "")[-600:]  # type: ignore[union-attr]
                     except (OSError, ValueError):
                         pass
                     raise RuntimeError(
@@ -217,17 +217,17 @@ class _SubprocessPluginClient:
     def _call(self, system_prompt: str, user_prompt: str) -> str:
         if self._closed:
             raise RuntimeError("自定义引擎子进程已关闭，无法继续调用")
-        if self._proc.poll() is not None:
+        if self._proc.poll() is not None:  # type: ignore[union-attr]
             stderr = ""
             try:
                 # Round 30 bound: cap stderr read at 10 KB so a pathological
                 # plugin spewing megabytes of text on exit cannot OOM the
                 # host.  Only the tail is shown in the error anyway.
-                stderr = (self._proc.stderr.read(10_000) or "")[-600:]
+                stderr = (self._proc.stderr.read(10_000) or "")[-600:]  # type: ignore[union-attr]
             except (OSError, ValueError):
                 pass
             raise RuntimeError(
-                f"自定义引擎子进程意外退出 (exit={self._proc.returncode}): {stderr}"
+                f"自定义引擎子进程意外退出 (exit={self._proc.returncode}): {stderr}"  # type: ignore[union-attr]
             )
 
         with self._lock:
@@ -240,8 +240,8 @@ class _SubprocessPluginClient:
             }
             try:
                 line = json.dumps(request, ensure_ascii=False) + "\n"
-                self._proc.stdin.write(line)
-                self._proc.stdin.flush()
+                self._proc.stdin.write(line)  # type: ignore[union-attr]
+                self._proc.stdin.flush()  # type: ignore[union-attr]
             except (BrokenPipeError, OSError) as e:
                 raise RuntimeError(f"自定义引擎子进程写入失败: {e}") from e
 
@@ -295,7 +295,7 @@ class _SubprocessPluginClient:
                 # accepting a truncated line.  See the
                 # ``_MAX_PLUGIN_RESPONSE_CHARS`` docstring for the
                 # byte-vs-char distinction.
-                line = self._proc.stdout.readline(_MAX_PLUGIN_RESPONSE_CHARS)
+                line = self._proc.stdout.readline(_MAX_PLUGIN_RESPONSE_CHARS)  # type: ignore[union-attr]
                 if line == "":
                     error.append(EOFError("plugin stdout closed before response"))
                     return
@@ -320,11 +320,11 @@ class _SubprocessPluginClient:
             # Wait briefly so poll() reflects the terminated state for any
             # diagnostic code the caller runs after catching this error.
             try:
-                self._proc.kill()
+                self._proc.kill()  # type: ignore[union-attr]
             except OSError:
                 pass
             try:
-                self._proc.wait(timeout=2)
+                self._proc.wait(timeout=2)  # type: ignore[union-attr]
             except subprocess.TimeoutExpired:
                 pass
             raise RuntimeError(
@@ -348,23 +348,23 @@ class _SubprocessPluginClient:
             return
         self._closed = True
         try:
-            if self._proc.poll() is None and self._proc.stdin and not self._proc.stdin.closed:
-                self._proc.stdin.write(
+            if self._proc.poll() is None and self._proc.stdin and not self._proc.stdin.closed:  # type: ignore[union-attr]
+                self._proc.stdin.write(  # type: ignore[union-attr]
                     json.dumps({"request_id": self._SHUTDOWN_REQUEST_ID}) + "\n"
                 )
-                self._proc.stdin.flush()
-                self._proc.stdin.close()
+                self._proc.stdin.flush()  # type: ignore[union-attr]
+                self._proc.stdin.close()  # type: ignore[union-attr]
         except (BrokenPipeError, OSError, ValueError):
             pass
         try:
-            self._proc.wait(timeout=5)
+            self._proc.wait(timeout=5)  # type: ignore[union-attr]
         except subprocess.TimeoutExpired:
             try:
-                self._proc.kill()
+                self._proc.kill()  # type: ignore[union-attr]
             except OSError:
                 pass
             try:
-                self._proc.wait(timeout=2)
+                self._proc.wait(timeout=2)  # type: ignore[union-attr]
             except subprocess.TimeoutExpired:
                 pass
 

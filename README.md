@@ -6,7 +6,7 @@
 
 ## 简体中文
 
-一个**纯 Python**（零第三方依赖，Python ≥ 3.9）的游戏自动汉化工具，支持 **Ren'Py / RPG Maker MV-MZ / CSV-JSONL**，通过 LLM API 翻译为简体中文。
+一个**纯 Python**（零第三方依赖，Python ≥ 3.10）的游戏自动汉化工具，支持 **Ren'Py / RPG Maker MV-MZ / CSV-JSONL**，通过 LLM API 翻译为简体中文。
 
 > **Round 52 C4 BREAKING**：r35-r48 多目标语言 contract（zh / zh-tw / ja / ko）已完全删除，目标语言固定为 **zh 简体中文**。源语言不限 — LLM 自动识别。已有 v2 schema 翻译 DB 用 `python scripts/migrate_db_v2_to_v1.py output/translation_db.json` 迁移到 v1。
 
@@ -132,7 +132,7 @@ python main.py --engine unity_xunity --game-dir "E:\Games\UnityGame\Translation"
 
 ## English
 
-A **pure-Python** (zero third-party dependencies, Python ≥ 3.9) automatic game translation tool. Supports **Ren'Py / RPG Maker MV-MZ / CSV-JSONL**, translating to Simplified Chinese via LLM APIs.
+A **pure-Python** (zero third-party dependencies, Python ≥ 3.10) automatic game translation tool. Supports **Ren'Py / RPG Maker MV-MZ / CSV-JSONL**, translating to Simplified Chinese via LLM APIs.
 
 > **Round 52 C4 BREAKING**: multi-target-language contract (zh / zh-tw / ja / ko) retired; output is fixed to **Simplified Chinese (zh)**.  Source language is auto-detected by the LLM.  Existing v2-schema translation DBs need migration via `python scripts/migrate_db_v2_to_v1.py output/translation_db.json`.
 

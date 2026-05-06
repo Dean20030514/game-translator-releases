@@ -115,7 +115,7 @@ def protect_placeholders(text: str,
     _use_cache = patterns is None
 
     if not text.strip():
-        rv = text, []
+        rv: tuple[str, list] = (text, [])
         if _use_cache:
             _placeholder_cache[cache_key] = rv
         return rv

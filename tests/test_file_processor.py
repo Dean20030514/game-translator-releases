@@ -434,6 +434,81 @@ def test_replace_string_escaped_quotes():
     print(f"[OK] replace_string_escaped_quotes (result={'matched' if result else 'no_match'})")
 
 
+def test_w_round57_s4_fuzz_escape_for_renpy_string():
+    """Round 57 S4: fuzz ``_escape_for_renpy_string`` with adversarial LLM
+    output (unbalanced quotes, raw backslashes, control chars, mixed
+    line endings). Output MUST always be a string that, when wrapped in
+    the chosen quote char, parses as a valid Ren'Py string literal — no
+    unbalanced quotes, no stray un-escaped backslashes.
+    """
+    from file_processor.patcher import _escape_for_renpy_string
+
+    # Adversarial inputs: things an LLM might emit that would break .rpy
+    # if pasted verbatim.
+    payloads = [
+        '"',                                        # bare unescaped quote
+        '\\',                                       # bare backslash
+        '\\"',                                      # already-escaped quote
+        '\\\\',                                     # escaped backslash
+        '"""',                                      # triple-quote (Python string ambiguity)
+        'normal text with " in middle and \\ too',  # mixed
+        'line1\nline2\rline3\r\nline4',             # all line-ending forms
+        'a' * 1000 + '"',                           # long input + trailing quote
+        '\x00 NUL',                                 # control char
+        'tab\there',                                # tab — should pass through
+        '不 escape "你好"',                         # non-ASCII + quotes
+        '',                                         # empty string
+    ]
+    for raw in payloads:
+        escaped = _escape_for_renpy_string(raw, '"')
+        # Property 1: every double-quote in the result must be preceded by
+        # a backslash (i.e. the count of unescaped " is zero).
+        i = 0
+        while i < len(escaped):
+            if escaped[i] == '"':
+                preceding_bs = 0
+                j = i - 1
+                while j >= 0 and escaped[j] == '\\':
+                    preceding_bs += 1
+                    j -= 1
+                assert preceding_bs % 2 == 1, (
+                    f"unescaped quote at position {i} in {escaped!r} "
+                    f"(from raw={raw!r})"
+                )
+            i += 1
+        # Property 2: no stray bare CR (Windows CRLF must be normalised
+        # to \\n; raw \\r must be stripped per docstring contract)
+        assert '\r' not in escaped, f"raw \\r leaked into {escaped!r}"
+        # Property 3: function never crashes — already covered by reaching here
+
+    print(f"[OK] w_round57_s4_fuzz_escape_for_renpy_string ({len(payloads)} payloads)")
+
+
+def test_w_round57_s4_escape_round_trip_invariant():
+    """Round 57 S4: a translation that's already valid Ren'Py should
+    not be corrupted by escape (idempotence on safe input)."""
+    from file_processor.patcher import _escape_for_renpy_string
+
+    # Already-safe outputs — escape should pass through quotes/backslashes
+    # but produce something parseable inside `"..."`.
+    safe_inputs = [
+        "你好",
+        "Hello, world",
+        "已译: [name]",
+        "数字 123",
+    ]
+    for s in safe_inputs:
+        result = _escape_for_renpy_string(s, '"')
+        # No quote in input means no escape needed
+        if '"' not in s:
+            assert '\\"' not in result, f"spurious escape: {s!r} → {result!r}"
+        # Backslash count: input \\ count == output \\\\ count (each \\ doubled)
+        # but on inputs without backslash, no spurious one
+        if '\\' not in s:
+            assert '\\\\' not in result, f"spurious double-backslash: {s!r} → {result!r}"
+    print("[OK] w_round57_s4_escape_round_trip_invariant")
+
+
 def test_fix_chinese_placeholder_drift():
     """Round 31 Tier A-2: AI-introduced Chinese placeholder variants are
     normalised back to canonical Ren'Py ``[name]`` syntax.
@@ -526,6 +601,8 @@ def run_all() -> int:
         test_protect_control_tags,
         test_replace_string_prefix_strip,
         test_replace_string_escaped_quotes,
+        test_w_round57_s4_fuzz_escape_for_renpy_string,
+        test_w_round57_s4_escape_round_trip_invariant,
         # Round 31 Tier A-2: placeholder drift fix (A-1 UI whitelist + r32
         # configurable + r44 oversize cap moved to tests/test_ui_whitelist.py
         # in round 45 to bring this file back under the 800-line soft limit)

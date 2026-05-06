@@ -262,9 +262,12 @@ class RateLimiter:
                         stale_sec = [k for k in self._second_counts if k < sec - 5]
                         for k in stale_sec:
                             del self._second_counts[k]
-                        old_min = [k for k in self._minute_counts if k != minute]
-                        for k in old_min:
-                            del self._minute_counts[k]
+                        # Distinct loop var (m_key) so mypy keeps the
+                        # str/int types straight after the int-keyed
+                        # ``stale_sec`` loop above.
+                        old_min = [m_key for m_key in self._minute_counts if m_key != minute]
+                        for m_key in old_min:
+                            del self._minute_counts[m_key]
                     return  # 获取成功
             # 在锁外等待
             time.sleep(wait_time)

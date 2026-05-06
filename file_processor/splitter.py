@@ -7,7 +7,7 @@ from __future__ import annotations
 import logging
 import re
 from pathlib import Path
-from typing import Optional
+from typing import Any, Optional, Union
 
 logger = logging.getLogger(__name__)
 
@@ -98,7 +98,7 @@ def split_file(filepath: str, max_tokens: int = 50000) -> list[dict]:
     boundaries = _find_block_boundaries(lines)
 
     # 在边界处将行分组为 chunk
-    chunks = []
+    chunks: list[dict[str, Any]] = []
     current_start = 0
 
     for i in range(1, len(boundaries)):
@@ -193,7 +193,7 @@ def _force_split_lines(lines: list[str], start: int, end: int,
     return chunks
 
 
-def read_file(path: object) -> str:
+def read_file(path: Union[str, Path]) -> str:
     """读取文件，自动处理编码"""
     if not isinstance(path, Path):
         path = Path(path)
