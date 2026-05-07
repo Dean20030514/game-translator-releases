@@ -10,7 +10,7 @@
 
 **当前数字**（测试数 / 文件数 / CI 步骤 / 断言点）：见 [HANDOFF.md](HANDOFF.md) 顶部 `<!-- VERIFIED-CLAIMS-START -->` 块 — **单一声称源**。本文 prose 不再独立声称数字。
 
-**质量水位**：direct-mode 漏翻率 4.01%（仅适用 English source，详见下方"已知限制"）；tl-mode 翻译成功率 99.97%（r52 实测 The Tyrant 74098 entries / **99.991%**）；连续 23 轮 0 CRITICAL correctness（r35-r63）。Round 55 起新增 Unity XUnity 引擎覆盖 ~10% 用户场景。
+**质量水位**：direct-mode 漏翻率 4.01%（仅适用 English source，详见下方"已知限制"）；tl-mode 翻译成功率 99.97%（r52 实测 The Tyrant 74098 entries / **99.991%**）；连续 24 轮 0 CRITICAL correctness（r35-r64）。Round 55 起新增 Unity XUnity 引擎覆盖 ~10% 用户场景。
 
 ---
 
@@ -115,8 +115,13 @@ scripts/         verify_docs_claims.py / verify_workflow.py / install_hooks.sh
 - **测试 fixture 单一化**（r60 audit P4 watchlist，r62 文档化）：r57 T3 加了 1 个 complex fixture（synthetic 手工构造）。真实游戏 edge case（XUAT regex rule 含 unicode escape / Ren'Py 8.6 → 7.x downgrade ID drift / RPGM Plugin Commands 含 JS 字符串）暂无 fixture。**触发即抽**：用户接到具体 game-specific bug 时，抽 minimal repro 进 `tests/artifacts/` 作未来 regression。当前 backlog "用户实际报告"触发即可
 - **GUI 翻译进度可视化未审**（r60 audit B3 watchlist，r62 文档化）：`gui_pipeline.py` 230 行处理 GUI 与 subprocess 通信，但 progress bar 实际行为（74098 entries 实时更新 / ETA 估算 / 大文件 stuck 时 GUI 假死）未审。**保留为 watchlist**：用户实际跑 GUI + The Tyrant fixture 暴露问题再 fix；当前 CLI 路径 main.py 已有 per-chunk progress log（r53 W1）
 - **多账号 / 多 provider 并发支持**（r60 audit B4 architectural decision，r62 文档化）：当前一次 run 只支持 1 个 `--provider` + 1 个 `--api-key`。用户分摊 quota 跑大项目（5 个 OpenAI key 并发 5x 速度）场景。**故意不做**——避免功能蔓延（项目第 8 原则最小改动）；用户用 launcher 脚本起多 main.py 进程也能达到同效果（每个 main.py 跑独立 game-dir 子集 + 独立 key + ProgressTracker 互不干扰）
-- **TODO 跟踪机制只在 internal docs**（r60 audit O3 architectural decision，r62 文档化）：HANDOFF.md "推荐 Round N+1 工作项" + ROADMAP.md actionable backlog + AUDIT_R57.md 都是 internal docs，未 sync 到 GitHub Projects / Issues。**故意保留**（与 r59 O4 community 建设 retire 同逻辑）——项目用户量小，社区贡献者实际无人，sync GitHub board ROI 低；如未来用户量增长再考虑
+- **TODO 跟踪机制只在 internal docs**（r60 audit O3 architectural decision，r62 文档化）：HANDOFF.md "推荐 Round N+1 工作项" + ROADMAP.md actionable backlog + AUDIT.md 都是 internal docs，未 sync 到 GitHub Projects / Issues。**故意保留**（与 r59 O4 community 建设 retire 同逻辑）——项目用户量小，社区贡献者实际无人，sync GitHub board ROI 低；如未来用户量增长再考虑
 - **Bus factor = 1（confirm-retire from r60 audit O4）**：唯一 maintainer @Dean20030514。r57 O1 retire / r59 O1 ARCHITECTURE Quick Tour / r59 O3 ONBOARDING.md / r62 O1 CODE_OF_CONDUCT.md / r62 O2 governance 文档化已尽力缓解。**fundamental 没变**——OSS 通病，等用户量增长 + 多人协作出现再考虑 multi-maintainer 治理演进
+- **4 production 文件接近 800 cap**（r63 audit T2 watchlist，r64 文档化）：`file_processor/patcher.py 770` / `tools/translation_editor.py 758` / `tools/rpyc_decompiler.py 742` / `engines/rpgmaker_engine.py 742` / `core/api_client.py 732` / `file_processor/checker.py 724`。1-2 轮内可能 reactively 触发 cap。`core/api_client.py` 在 mypy enforce 6 文件 scope 内（[ADR 0007](docs/adr/0007-mypy-enforce-scope.md)），拆分需保持 scope 内文件全部 mypy clean。**新 PR 加 production 代码到这些文件必须先评估是否拆分**
+- **Type hint coverage 度量说明**（r60/r63 audit T2/T3 文档化）：production-only 实测 87.1%（393/451 functions）；含 tests/ 后 42.5% 看起来低是因为 pytest 测试函数惯例不带 type hints。r60 audit T2 引用的"43.2%"数字是含 tests/ 的，**误导**。production 实际 type 覆盖良好；r61 T2 的"新代码 100% type hint" PR 规则是正确方向（不强求 backfill 存量）
+- **`__pycache__` / `.pyc` 残留**（r63 audit T4 architectural decision，r64 文档化）：本地累积 200+ `.pyc` 文件常见。`.gitignore` 已含 `__pycache__/` + `*.pyc`，git 不追踪。仅本地 dev 影响（find 慢 / stale module 残留 / IDE 偶尔从 .pyc 读 stale signature）。**不提供 cleanup 脚本**——用户随手 `find . -name __pycache__ -exec rm -rf {} +` 即可
+- **gui.py 与 GUI 相关 import / 函数内 imports**（r63 audit A1/A2 watchlist，r64 文档化）：`gui.py 594 行 watchlist persisted`（与 r60 audit T3/A3 同决策；新 GUI 功能必须先拆）；`pipeline/stages.py` 10 处函数内 import 历史 lazy-import / 循环规避混合，未审计每处的真实原因。**新 PR 加新函数内 import 必须 docstring 说明 lazy 原因**（避免误把循环规避当 lazy 优化）
+- **空 `__init__.py` 不一致**（r63 audit A3 architectural decision，r64 文档化）：`file_processor/` (96) / `engines/` (41) / `safety/` (21) 三个 package 有实质 re-export；`translators/` / `tools/` / `pipeline/` / `core/` 四个为空。Python 惯例允许空 __init__；新贡献者从 [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) 模块图理解，不依赖 __init__ docstring
 
 ---
 
@@ -130,7 +135,8 @@ scripts/         verify_docs_claims.py / verify_workflow.py / install_hooks.sh
 | 历史决策（r1-r55 详 + r56-r60 表格摘要） | [_archive/EVOLUTION.md](_archive/EVOLUTION.md) |
 | r56-r60 完整叙事（r60 首次滚动归档） | [_archive/EVOLUTION_r56_r60.md](_archive/EVOLUTION_r56_r60.md) |
 | 最近 5 轮详细变更（r48-r52） | [_archive/CHANGELOG_RECENT_r52.md](_archive/CHANGELOG_RECENT_r52.md) |
-| 当前 audit cycle（r60 收集 23 unique new findings） | [AUDIT_R57.md](AUDIT_R57.md) |
+| 当前 audit cycle（active entry，r64 S2 改名） | [AUDIT.md](AUDIT.md) |
+| r63 cycle 完整审计报告 | [_archive/AUDIT_R63.md](_archive/AUDIT_R63.md) |
 | 用户面文档（中英双语） | [README.md](README.md) |
 
 ---

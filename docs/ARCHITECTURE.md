@@ -83,7 +83,7 @@ python main.py --game-dir tests/tl_priority_mini/game --provider xai --dry-run
 1. 看 [`_archive/EVOLUTION.md`](../_archive/EVOLUTION.md) — 按轮次叙事（r1 → 当前）
 2. 看 [`docs/adr/`](adr/) — 主题切片，跨轮的同主题决策汇总到一个 ADR
 3. 看 git blame — 每个 commit message 都尽量解释了 "why"
-4. 看 [`AUDIT_R57.md`](../AUDIT_R57.md)（如果还存在）— 6 维度审计的完整 findings + 决策路径
+4. 看 [`AUDIT.md`](../AUDIT.md)（永久入口；r64 S2 改名）— 当前 audit cycle；历史 cycle 归档在 [`_archive/AUDIT_R{N}.md`](../_archive/)
 
 ---
 

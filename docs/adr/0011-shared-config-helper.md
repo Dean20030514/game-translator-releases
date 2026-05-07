@@ -50,7 +50,7 @@ args.provider = args.provider or config.get("provider") or DEFAULT_PROVIDER
 - 测试覆盖（2 单元测试）作 regression contract
 
 负面：
-- 当前**实际 reuse 仅 main.py**（GUI 仍走 subprocess.Popen，见 [r60 audit A2](../../AUDIT_R57.md)）— helper 现 single-caller，看起来过度抽象
+- 当前**实际 reuse 仅 main.py**（GUI 仍走 subprocess.Popen，见 [r60 audit A2](../../AUDIT.md)）— helper 现 single-caller，看起来过度抽象
 - 增加一次 function call 开销（微秒级，可忽略）
 
 中立：
@@ -60,7 +60,7 @@ args.provider = args.provider or config.get("provider") or DEFAULT_PROVIDER
 
 `_resolve_args_from_config` 是 architectural pattern，不是 hard contract。约束较弱：
 - 新 entry point **应该** 优先 reuse helper（ADR 推荐）
-- 不强制（GUI subprocess 模式有正当理由保持 — 见 [r60 audit A2 retire](../../AUDIT_R57.md)）
+- 不强制（GUI subprocess 模式有正当理由保持 — 见 [r60 audit A2 retire](../../AUDIT.md)）
 
 ## 关联
 

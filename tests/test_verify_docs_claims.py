@@ -512,232 +512,6 @@ def _make_fixture_repo(
         (td / f"big_{i}.py").write_text("x\n" * 1000, encoding="utf-8")
 
 
-def test_main_fast_path_returns_zero_when_everything_matches():
-    """When file-size / test-file count / CI step count all match
-    the fenced claims, ``main(['--fast', '--repo-root', td])`` exits
-    0 and prints a success summary."""
-    from scripts.verify_docs_claims import main
-
-    with tempfile.TemporaryDirectory() as td:
-        td = Path(td)
-        _make_fixture_repo(td, ci_steps=5, test_files=3, claim_ci=5, claim_test_files=3)
-        rc = main(["--fast", "--repo-root", str(td)])
-    assert rc == 0, f"expected exit 0, got {rc}"
-    print("[OK] main_fast_path_returns_zero_when_everything_matches")
-
-
-def test_main_fast_path_fails_on_oversized_py_file():
-    """Any ``.py`` over the 800-line limit makes ``--fast`` exit 1
-    even if all other dimensions agree."""
-    from scripts.verify_docs_claims import main
-
-    with tempfile.TemporaryDirectory() as td:
-        td = Path(td)
-        _make_fixture_repo(
-            td, ci_steps=5, test_files=3, claim_ci=5, claim_test_files=3, oversized_count=1
-        )
-        rc = main(["--fast", "--repo-root", str(td)])
-    assert rc == 1, f"expected exit 1 on oversized .py, got {rc}"
-    print("[OK] main_fast_path_fails_on_oversized_py_file")
-
-
-def test_main_fast_path_fails_on_test_file_count_drift():
-    """Real test_files (3) > claim (2) → drift → exit 1."""
-    from scripts.verify_docs_claims import main
-
-    with tempfile.TemporaryDirectory() as td:
-        td = Path(td)
-        _make_fixture_repo(td, ci_steps=5, test_files=3, claim_ci=5, claim_test_files=2)
-        rc = main(["--fast", "--repo-root", str(td)])
-    assert rc == 1, f"expected exit 1 on test-files drift, got {rc}"
-    print("[OK] main_fast_path_fails_on_test_file_count_drift")
-
-
-def test_main_fast_path_fails_on_ci_steps_drift():
-    """Real ci_steps (5) > claim (4) → drift → exit 1."""
-    from scripts.verify_docs_claims import main
-
-    with tempfile.TemporaryDirectory() as td:
-        td = Path(td)
-        _make_fixture_repo(td, ci_steps=5, test_files=3, claim_ci=4, claim_test_files=3)
-        rc = main(["--fast", "--repo-root", str(td)])
-    assert rc == 1, f"expected exit 1 on ci-steps drift, got {rc}"
-    print("[OK] main_fast_path_fails_on_ci_steps_drift")
-
-
-def test_main_fast_path_fails_on_missing_handoff():
-    """If HANDOFF.md is missing the claim block, exit 1 (setup
-    error surfaces as failure — silent pass would defeat the
-    drift detector)."""
-    from scripts.verify_docs_claims import main
-
-    with tempfile.TemporaryDirectory() as td:
-        td = Path(td)
-        _make_fixture_repo(td, ci_steps=5, test_files=3, claim_ci=5, claim_test_files=3)
-        # Overwrite HANDOFF without claim block.
-        (td / "HANDOFF.md").write_text("# HANDOFF\nno block.\n", encoding="utf-8")
-        rc = main(["--fast", "--repo-root", str(td)])
-    assert rc == 1, f"expected exit 1 on missing claim block, got {rc}"
-    print("[OK] main_fast_path_fails_on_missing_handoff")
-
-
-def test_main_fast_path_fails_on_tests_total_drift():
-    """Round 49 contract update: ``tests_total`` is derived statically
-    via AST (no subprocess), so ``--fast`` checks it just like the
-    other three keys.  Real synthetic = 3 tests (3 files × 1 each),
-    claim_tests_total = 99 → drift → exit 1."""
-    from scripts.verify_docs_claims import main
-
-    with tempfile.TemporaryDirectory() as td:
-        td = Path(td)
-        _make_fixture_repo(
-            td, ci_steps=5, test_files=3, claim_tests_total=99
-        )  # diverge only this lever
-        rc = main(["--fast", "--repo-root", str(td)])
-    assert rc == 1, f"expected exit 1 on tests_total drift, got {rc}"
-    print("[OK] main_fast_path_fails_on_tests_total_drift")
-
-
-def test_main_fast_path_fails_on_assertion_points_drift():
-    """``assertion_points = tests_total + self-test (N assertions)``.
-    Synthetic fixture: 2 self-test steps with 5 + 7 assertions and
-    3 plain tests → real = 3 + 12 = 15.  Claim = 999 → drift."""
-    from scripts.verify_docs_claims import main
-
-    with tempfile.TemporaryDirectory() as td:
-        td = Path(td)
-        _make_fixture_repo(
-            td,
-            ci_steps=5,
-            test_files=3,
-            self_test_assertion_steps=(5, 7),
-            claim_assertion_points=999,
-        )
-        rc = main(["--fast", "--repo-root", str(td)])
-    assert rc == 1, f"expected exit 1 on assertion_points drift, got {rc}"
-    print("[OK] main_fast_path_fails_on_assertion_points_drift")
-
-
-# ---------------------------------------------------------------------------
-# Real-repo smoke — pin the contract that ``--fast`` against the
-# actual project tree currently exits 0.  This catches the case
-# where someone lands a commit *without* updating HANDOFF claims.
-# ---------------------------------------------------------------------------
-
-
-def test_main_fast_path_zero_against_real_repo():
-    """Cross-check: running ``--fast`` against the real repo (no
-    --repo-root override) must exit 0 at HEAD.  This is the
-    smoke that ``pre-commit`` will run on every commit."""
-    from scripts.verify_docs_claims import main
-
-    rc = main(["--fast"])
-    assert rc == 0, (
-        f"real-repo --fast must exit 0 at HEAD; got {rc}.  "
-        "If this fails, HANDOFF.md VERIFIED-CLAIMS block disagrees "
-        "with reality — fix the claims before committing."
-    )
-    print("[OK] main_fast_path_zero_against_real_repo")
-
-
-def test_parse_claims_skips_malformed_lines_silently_for_all_edge_cases():
-    """Round 50 C2 Coverage HIGH-1 + Correctness LOW-3: 5 malformed
-    scenarios silently skipped (backward-compat fail-open)."""
-    import tempfile
-    from scripts.verify_docs_claims import parse_claims, CLAIM_BLOCK_START, CLAIM_BLOCK_END
-
-    for label, bad in [
-        ("non-int value", "tests_total: abc"),
-        ("missing colon", "tests_total 488"),
-        ("empty value", "tests_total: "),
-        ("embedded colon", "tests_total: 488: extra"),
-        ("trailing decimal (LOW-3 fix)", "tests_total: 419.5"),
-    ]:
-        with tempfile.TemporaryDirectory() as td:
-            h = Path(td) / "HANDOFF.md"
-            h.write_text(
-                f"{CLAIM_BLOCK_START}\n{bad}\nci_steps: 36\n{CLAIM_BLOCK_END}\n", encoding="utf-8"
-            )
-            claims = parse_claims(h)
-        assert claims == {"ci_steps": 36}, f"{label}: {claims!r}"
-    print("[OK] parse_claims_skips_malformed_lines_silently_for_all_edge_cases")
-
-
-def test_parse_claims_returns_partial_dict_on_mixed_valid_invalid():
-    """Round 50 1d: valid + unknown keys both kept (main reports MISS for required absent)."""
-    import tempfile
-    from scripts.verify_docs_claims import parse_claims, CLAIM_BLOCK_START, CLAIM_BLOCK_END
-
-    with tempfile.TemporaryDirectory() as td:
-        h = Path(td) / "HANDOFF.md"
-        h.write_text(
-            f"{CLAIM_BLOCK_START}\ntests_total: 488\nunknown_key: 999\nci_steps: 36\n{CLAIM_BLOCK_END}\n",
-            encoding="utf-8",
-        )
-        claims = parse_claims(h)
-    assert claims == {"tests_total": 488, "unknown_key": 999, "ci_steps": 36}, f"got {claims!r}"
-    print("[OK] parse_claims_returns_partial_dict_on_mixed_valid_invalid")
-
-
-def test_workflow_includes_mock_target_consistency_check_step():
-    """Round 50 1a + C4 deep-audit Security MEDIUM fix: CI step
-    catches both mock.patch + patch.object forms; filter 'file_safety'
-    (not 'core\\.file_safety') to handle qualified forms."""
-    import yaml
-
-    wp = REPO_ROOT / ".github" / "workflows" / "test.yml"
-    steps = yaml.safe_load(wp.read_text(encoding="utf-8"))["jobs"]["test"]["steps"]
-    matches = [s for s in steps if "Mock target consistency" in s.get("name", "")]
-    assert len(matches) == 1, f"must have 1 such step; got {len(matches)}"
-    run = matches[0].get("run", "")
-    assert "mock\\.patch.*os\\.fstat" in run, "must catch mock.patch form"
-    assert "patch\\.object" in run and "fstat" in run, "must catch patch.object form"
-    assert 'grep -v "file_safety"' in run, "filter must be 'file_safety' (r50 C4 fix)"
-    assert 'grep -v "core\\.file_safety"' not in run, (
-        "filter must NOT be 'core\\.file_safety' — false-positives on qualified forms"
-    )
-    print("[OK] workflow_includes_mock_target_consistency_check_step")
-
-
-def test_execute_all_ci_test_steps_skips_verify_docs_claims_full_self_step():
-    """Round 49 C7 audit-tail: ``execute_all_ci_test_steps`` MUST skip
-    CI steps invoking ``verify_docs_claims --full`` to prevent self-
-    recursion (Windows WinError 32 file lock).  Pin the guard."""
-    import tempfile
-    from pathlib import Path
-    from scripts.verify_docs_claims import execute_all_ci_test_steps
-
-    with tempfile.TemporaryDirectory() as td:
-        ws = Path(td) / "workflow.yml"
-        # Two steps: a benign echo + the self-recursive --full call.
-        # If the skip is missing, the second step will fork python
-        # which will fail to find scripts/verify_docs_claims.py in
-        # the empty tempdir and raise RuntimeError; with the skip,
-        # only the echo runs and the function returns cleanly.
-        ws.write_text(
-            "name: test\n"
-            "on: push\n"
-            "jobs:\n"
-            "  test:\n"
-            "    runs-on: ubuntu-latest\n"
-            "    steps:\n"
-            "      - name: Run echo test\n"
-            "        run: echo passed\n"
-            "      - name: Run verify_docs_claims --full self-gate\n"
-            "        run: python scripts/verify_docs_claims.py --full\n",
-            encoding="utf-8",
-        )
-        # No exception expected = skip works; any RuntimeError from
-        # the self-recursion path would propagate up.
-        execute_all_ci_test_steps(ws, repo_root=Path(td))
-    print("[OK] execute_all_ci_test_steps_skips_verify_docs_claims_full_self_step")
-
-
-# ---------------------------------------------------------------------------
-# Test registry + entry point
-# ---------------------------------------------------------------------------
-
-
 TESTS = [
     test_find_oversized_py_files_returns_empty_when_all_under_limit,
     test_find_oversized_py_files_detects_file_over_limit,
@@ -755,28 +529,17 @@ TESTS = [
     test_parse_claims_reads_fenced_block,
     test_parse_claims_raises_when_block_missing,
     test_parse_claims_ignores_inline_comments,
-    test_main_fast_path_returns_zero_when_everything_matches,
-    test_main_fast_path_fails_on_oversized_py_file,
-    test_main_fast_path_fails_on_test_file_count_drift,
-    test_main_fast_path_fails_on_ci_steps_drift,
-    test_main_fast_path_fails_on_missing_handoff,
-    test_main_fast_path_fails_on_tests_total_drift,
-    test_main_fast_path_fails_on_assertion_points_drift,
-    test_main_fast_path_zero_against_real_repo,
-    # Round 50 C2 Coverage HIGH-1 + Correctness LOW-3: 5 malformed scenarios
-    test_parse_claims_skips_malformed_lines_silently_for_all_edge_cases,
-    # Round 50 1d: parse_claims partial dict on mixed valid/unknown
-    test_parse_claims_returns_partial_dict_on_mixed_valid_invalid,
-    # Round 50 1a: mock target stale trap CLASS guard contract
-    test_workflow_includes_mock_target_consistency_check_step,
-    # Round 49 C7 audit-tail: self-recursion guard
-    test_execute_all_ci_test_steps_skips_verify_docs_claims_full_self_step,
 ]
 
 
 def run_all() -> int:
-    """Run every registered test in registration order and return
-    the count for the ``ALL N PASSED`` summary line."""
+    """Run every helper unit test in registration order.
+
+    r64 T1 split: integration / main_fast_path / parse_claims-edge /
+    workflow / execute_all_ci tests moved to
+    ``tests/test_verify_docs_claims_main.py`` (was 790 lines, near the
+    800-line cap).
+    """
     for t in TESTS:
         t()
     return len(TESTS)
@@ -786,5 +549,5 @@ if __name__ == "__main__":
     n = run_all()
     print()
     print("=" * 40)
-    print(f"ALL {n} VERIFY DOCS CLAIMS TESTS PASSED")
+    print(f"ALL {n} VERIFY DOCS CLAIMS HELPER TESTS PASSED")
     print("=" * 40)

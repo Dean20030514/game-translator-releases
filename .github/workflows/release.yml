@@ -147,7 +147,7 @@ jobs:
             echo ""
             echo "- Verify SHA256 against \`SHA256SUMS.txt\` in this release"
             echo "- Project state at this tag: see \`HANDOFF.md\` VERIFIED-CLAIMS block"
-            echo "- Audit trail: \`AUDIT_R57.md\` (if present) + \`_archive/EVOLUTION.md\`"
+            echo "- Audit trail: \`AUDIT.md\` (active) + \`_archive/AUDIT_R{N}.md\` (closed cycles) + \`_archive/EVOLUTION.md\`"
           } > release-notes.md
           cat release-notes.md
 

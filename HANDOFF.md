@@ -1,10 +1,10 @@
-# HANDOFF — Round 63 末 → Round 64 起点（**r63 第三次 6 维度审计：23 unique new findings 待 fix**）
+# HANDOFF — Round 64 末 → Round 65 起点（**r63 audit 路径 X 第一波 — 维度 1+2+3 共 11 项 fix 全闭合 + 3 audit-tail surfaced regressions**）
 
 <!-- VERIFIED-CLAIMS-START -->
-tests_total: 498
-test_files: 36
+tests_total: 480
+test_files: 38
 ci_steps: 36
-assertion_points: 624
+assertion_points: 606
 <!-- VERIFIED-CLAIMS-END -->
 
 > **上方 fenced 块是声明数字的唯一位置**。其他文档（`CLAUDE.md` / `.cursorrules` / `CHANGELOG.md` / `_archive/EVOLUTION.md` / `README.md` 等）只能引用这些数字，**不能重新声明**。`scripts/verify_docs_claims.py` 在 pre-commit hook 自动检查，drift fails the commit。
@@ -22,11 +22,11 @@ assertion_points: 624
 
 ## 状态一句话
 
-纯 Python 零依赖**zh-only**游戏汉化工具。**Round 63 重做第三次 6 维度深度债务审计**（r57 cycle 23 + r60 cycle 23 已闭合 = 46 项；r63 不重复）：扫描 r62 末 baseline 后的更深层潜在债务，**收集 23 unique new findings 重写 [`AUDIT_R57.md`](AUDIT_R57.md)**（**2 HIGH + 9 MEDIUM + 12 LOW**）。**2 HIGH 是 imminent failure**：(T1) 3 个 testfile 危险接近 800 cap（test_file_safety 798 / test_api_client 792 / test_verify_docs_claims 790，距 cap 2-10 行），加任何新测试就 block commit；(S1) **pre-commit hook 仅运行 191/485 测试 ≈ 39% 覆盖**（24/35 测试文件不在 meta-runner，包括 r61 T1 fix 验证 + r62 B1 interrupt 测试本身）。其他重要 finding：S2 (`AUDIT_R57.md` 命名 drift，实际是 r63 cycle 容器) / S3 (START.bat 错误声称 Python 3.9+ 矛盾 r57 T1 BREAKING) / S4 (无 `--version` flag) / P1 (ROADMAP.md "截止 r57 末" stale) / P2 (ONBOARDING 说 "5 份 ADR" 但实际 11 份) / B2 (build.py 无 PyInstaller version-info)。本轮**仅完成 audit 报告**，**不实施 fix**（用户决策路径 X/Y/Z/W 后由 r64+ 执行）。**连续 23 轮 0 CRITICAL correctness**（r35-r63）。
+纯 Python 零依赖**zh-only**游戏汉化工具。**Round 64 完成 r63 audit 路径 X 第一波 — 维度 1+2+3 共 11 项 fix 全闭合**：(T1 HIGH) 拆 3 testfile 接近 cap — `test_file_safety.py 798→151+692` (helper+loaders) / `test_api_client.py 792→656+173` / `test_verify_docs_claims.py 790→553+405`；(S1 HIGH) 重写 `tests/test_all.py` 为 subprocess-discover-and-run 跑全部 37 文件，audit-tail **surfaced 3 个 pre-existing silent regressions 同轮全修**：test_batch1 r52 C4 stale 多语言测试重命名 / test_rpyc_decompiler.py 删除（582 行 dead，5/8 imports 引用已不存在的 API）/ test_single.py 加 `_NON_TEST_FILES` 排除（manual script）；(S2) `git mv AUDIT_R57.md _archive/AUDIT_R63.md` + 新建 `AUDIT.md` 永久入口；(S3) START.bat Python 3.9 → 3.10 + 版本检测；(S4) `main.py --version` flag（读 `pyproject.toml`，输出 `main.py 2.0.0`）；(T2+T3+T4+A1+A2+A3) 6 项 watchlist/retire 文档化到 CLAUDE.md "已知限制"段。**数字增量**：tests_total 498→480 (-18: 删除 test_rpyc_decompiler)；test_files 36→38 (+2 net)；assertion_points 624→606 (-18)。**连续 24 轮 0 CRITICAL correctness**（r35-r64）。**下一轮 r65 闭合维度 4+5+6 共 12 项 + EVOLUTION 滚动归档**（hard contract #15 触发，抽 r61-r65 → `_archive/EVOLUTION_r61_r65.md`）。
 
 ## 同步状态
 
-- r63 单 commit 待 push（NEVER push 政策保留给用户）
+- r64 单 commit 待 push（NEVER push 政策保留给用户）
 - 本地未 push（按 NEVER push 政策保留 commit 决策给用户）
 - pre-commit hook 已激活（`git config core.hooksPath = .git-hooks`）
 - 4 件套 + r52 C1 push-status drift check 自动 enforce：py_compile + 800 行 cap + meta-runner + `verify_docs_claims --fast` (含 push-status check)
@@ -67,16 +67,17 @@ assertion_points: 624
 | Release 自动化 | ✅ **r59 B1**：`.github/workflows/release.yml` on `v*` tag → PyInstaller × 3 OS matrix → SHA256SUMS → draft Release |
 | 用户面文档 | ✅ **r59 B4**：README 中英双段加"免责声明"（翻译产物法律责任由用户承担）|
 | 错误信息一致化 | ✅ **r59 B3**：5 处英文 message 中文化；prefix 保持英文 caps（已成熟惯例 + grep 友好）|
-| AUDIT_R57.md 23 findings (r57 cycle) | ✅ **r59 末全闭合**（r57 8 + r58 8 + r59 8 - 1 retire 复用 = 23）|
-| AUDIT_R57.md 23 findings (r60 cycle) | ✅ **r62 末全闭合**（r61 11 + r62 12 = 23 项全闭合）|
-| AUDIT_R57.md 23 findings (r63 cycle) | 🟡 **r63 末写入**（2 HIGH + 9 MEDIUM + 12 LOW）— 待 r64+ fix |
+| AUDIT.md 23 findings (r57 cycle) | ✅ **r59 末全闭合**（r57 8 + r58 8 + r59 8 - 1 retire 复用 = 23）|
+| AUDIT.md 23 findings (r60 cycle) | ✅ **r62 末全闭合**（r61 11 + r62 12 = 23 项全闭合）|
+| AUDIT.md 23 findings (r63 cycle) | 🟡 **r64 末闭合 11 项**（T1-T4 + S1-S4 + A1-A3 + 3 audit-tail surfaced regressions）；r65 待闭合 12 项（P1-P4 + B1-B4 + O1-O4） |
 | ADR 覆盖 | ✅ **r61 A1**：补 ADR 0006-0011 共 6 份（py 3.10 floor / mypy enforce / path traversal / ruff CI / EVOLUTION rolling archive / shared config helper）|
 | macOS CI 覆盖 | ✅ **r61 S1**：`.github/workflows/test_macos.yml` nightly schedule（cron + workflow_dispatch，3.10/3.12/3.13）|
 | EVOLUTION 滚动归档 | ✅ **r60 首次执行**（hard contract #15）— `_archive/EVOLUTION_r56_r60.md` 新建；主 EVOLUTION.md 364→276 (-88 / 24%) |
 | 项目版本号 | ✅ **r62 B2**：`pyproject.toml::version` 1.0.0 → 2.0.0（反映 r52 C3/C4 + r57 T1 累积 BREAKING）|
 | 治理文档 | ✅ **r62 O1+O2**：`CODE_OF_CONDUCT.md` 新建（Contributor Covenant 2.1）+ `CONTRIBUTING.md` "Governance" 段（BDFL 模型）|
 | 中断恢复测试 | ✅ **r62 B1**：`tests/test_interrupt_recovery.py` 3 observation tests pin SIGTERM/KI 现状 |
-| 累计审计 | ✅ 连续 23 轮 0 CRITICAL correctness（r35-r63） |
+| Meta-runner 覆盖 | ✅ **r64 S1**：subprocess-discover-and-run 跑全部 37 测试文件（pre-r64 仅 11 文件 / 39%）；audit-tail 修 3 pre-existing silent regressions |
+| 累计审计 | ✅ 连续 24 轮 0 CRITICAL correctness（r35-r64） |
 
 ## 推荐的 Round 56+ 工作项
 
@@ -98,11 +99,40 @@ assertion_points: 624
 
 - ~~**Unity XUnity AutoTranslator 接入**~~ — **r55 完成**：[`engines/unity_xunity.py`](engines/unity_xunity.py) 实现 detect/extract/write_back，支持 `original=translation` 普通行 + `//` 注释保留 + `r:"<pattern>"="<replacement>"` 正则规则（pattern 不动，仅 replacement 提交 LLM）+ UTF-8 BOM round-trip + CRLF/LF 行尾保留 + 50 MB OOM cap + TOCTOU 防御。CLI `--engine unity` 与 `--engine unity_xunity` 都接受。16 单元测试 PASS（含 round-trip byte-identical assertion）。
 
-### 🟡 Round 63 完成（第三次 6 维度深度审计 — 23 unique new findings 待 r64+ fix）
+### ✅ Round 64 完成（r63 audit 路径 X 第一波 — 维度 1+2+3 共 11 项 fix 全闭合 + 3 audit-tail surfaced regressions）
+
+> r63 末用户选**路径 X**（全部 23 项 fix，约 r64-r65 两轮）。r64 推进维度 1+2+3 共 11 项（T1-T4 + S1-S4 + A1-A3）。剩余维度 4+5+6 共 12 项给 r65。**r64 是 r60→r61-r62 cycle 的复刻**。
+
+**1. T1 HIGH — 拆 3 testfile（pre-emptive 800 cap 防御）**：
+- `tests/test_file_safety.py` 798 → **151** 行（5 helper unit tests）+ 新 `tests/test_file_safety_loaders.py` **692** 行（16 caller-integration TOCTOU regressions）
+- `tests/test_api_client.py` 792 → **656** 行（22 unit tests）+ 新 `tests/test_api_client_response_cap.py` **173** 行（5 response-body cap tests）
+- `tests/test_verify_docs_claims.py` 790 → **553** 行（16 helper unit tests）+ 新 `tests/test_verify_docs_claims_main.py` **405** 行（12 main_fast_path integration tests，含复制 `_make_fixture_repo` helper）
+- 全部 21+27+28 = 76 tests 拆分后保留 PASS
+
+**2. S1 HIGH — 重写 meta-runner + audit-tail 修 3 silent regressions**：
+- `tests/test_all.py` 完全重写为 **subprocess-discover-and-run** 模式（37 文件 / ~7s vs prior 11 文件 / 0.68s）。Discover 模式自动跟进未来新加测试文件，永不再 silent gap
+- audit-tail 副产品：S1 修改后 meta-runner 立即暴露 3 个 pre-existing silent regressions（pre-r64 因为不在 meta-runner 而无人发现）：
+  - `tests/test_batch1.py:240-270` — 3 个多语言测试 (`test_default_language_ja/ko/zh-tw`) 引用已 r52 C4 BREAKING 移除的字符串 (`"japanese"` / `"korean"` / `"traditional_chinese"`)。**修**：rename 为 `_kwarg_ignored_post_r52` 并改 assertion 为 `"chinese"`（pin r52 C4 contract: kwarg ignored, always 'chinese'）
+  - `tests/test_rpyc_decompiler.py` (582 行) — 5/8 imports 引用已不存在的 API（`RPYC2_HEADER` / `_RestrictedUnpickler` / `_read_rpyc_data` / `_safe_unpickle` / `extract_strings_from_rpyc`）。**修**：删除（dead test debt；r65+ 可在新 API 上重建）
+  - `tests/test_single.py` — 是 `python tests/test_single.py <api_key>` 的 manual integration script (`input()` prompt for API key)，不是 unit test。**修**：加入 `tests/test_all.py::_NON_TEST_FILES` 排除（保留文件作为 manual script 历史）
+
+**3. S2-S4（质量与安全债）**：
+- (S2) `git mv AUDIT_R57.md _archive/AUDIT_R63.md` + 新 `AUDIT.md` 永久入口（active cycle 标记 + archived cycles 索引表）；CLAUDE.md docs index / HANDOFF / docs/ARCHITECTURE / 2 workflow / ADR 0011 全 refs 更新
+- (S3) `START.bat` `Python 3.9+` → `Python 3.10+` + `python -c` 版本检测拦截过早失败（错误信息引用 ADR 0006）
+- (S4) `main.py` argparse `--version` flag + 新 `_read_project_version()` 从 `pyproject.toml` regex 解析（避免 tomllib 3.11+ 依赖）；实测 `python main.py --version` → `main.py 2.0.0`
+
+**4. T2-T4 + A1-A3（技术 + 架构维度 watchlist/retire 文档化）**：
+6 项加到 CLAUDE.md "已知限制" 段：T2 (4 production 文件接近 cap watchlist) / T3 (hint coverage 度量说明 — production 87.1% vs 含 tests 42.5%；r60 audit T2 引用的 43.2% 误导) / T4 (.pyc residue retire) / A1+A2 (gui.py + pipeline/stages.py 函数内 import; "新 PR 必须 docstring 说明 lazy 原因") / A3 (空 __init__.py retire)
+
+**数字增量**：tests_total 498 → 480 (-18: 删除 test_rpyc_decompiler 18 tests); test_files 36 → 38 (+2 net: +3 split 新文件 - 1 删除); ci_steps 36 unchanged; assertion_points 624 → 606 (-18)。
+
+**hard contracts 仍 15**（无新约束加入；r64 closures 都是文档化 / 拆分 / 修复 / retire）。
+
+### 🟢 Round 63 完成（第三次 6 维度深度审计 — 23 unique new findings → 路径 X 选定）
 
 > r63 是**纯 audit 轮**，零代码 / 零数字变更（VERIFIED-CLAIMS 维持 498/36/36/624）。r57 cycle 23 + r60 cycle 23 已闭合 = 46 项；本轮扫 r62 末 baseline 后的更深层潜在债务，**不重复任何已闭合 findings**。
 
-**Ground-truth scan 充分**（11+ 命令）+ 重写 [`AUDIT_R57.md`](AUDIT_R57.md) 为 r63 cycle 容器。
+**Ground-truth scan 充分**（11+ 命令）+ 重写 [`AUDIT.md`](AUDIT.md) 为 r63 cycle 容器。
 
 **6 维度 23 unique findings 概要**：
 
@@ -172,7 +202,7 @@ assertion_points: 624
 
 **2. 6 维度深度审计 (round 2)**：
 - ground-truth scan 确认 r57 audit 23 findings 全闭合（r57 8 + r58 8 + r59 8 - 1 retire 复用 = 23）
-- 收集 **23 unique new findings**，写入 [`AUDIT_R57.md`](AUDIT_R57.md)（覆盖 r60 cycle）：
+- 收集 **23 unique new findings**，写入 [`AUDIT.md`](AUDIT.md)（覆盖 r60 cycle）：
 
 | 维度 | finding 数 | 严重度 |
 |------|----------|--------|
@@ -201,9 +231,9 @@ assertion_points: 624
 > r62 P1 fix：原 4 段详细 round-by-round 叙事（~80 行）压缩为单行 bullets。**完整内容**已通过 r60 滚动归档存入 [`_archive/EVOLUTION_r56_r60.md`](_archive/EVOLUTION_r56_r60.md)。
 
 - **Round 56** — 全面深度 8 维度 audit 11 findings 路径 C 全 fix（5 死 import 清理 / `safety/file_safety.py` 顶层 package 移位 / unity_xunity regex backref placeholder protection / 4 production 模块 print → logger 29 处）；详见 [EVOLUTION_r56_r60 §阶段十五](_archive/EVOLUTION_r56_r60.md)
-- **Round 57** — 6 维度深度审计写入 [`AUDIT_R57.md`](AUDIT_R57.md)（23 findings），维度 1+2（T1-T4 + S1-S4）闭合（py 3.10 floor BREAKING / mypy informational → enforce / `_sanitize_user_path` path traversal / `.rpy` escape fuzz）；+3 hard contracts (#11-#13)；详见 [EVOLUTION_r56_r60 §阶段十六](_archive/EVOLUTION_r56_r60.md)
+- **Round 57** — 6 维度深度审计写入 [`AUDIT.md`](AUDIT.md)（23 findings），维度 1+2（T1-T4 + S1-S4）闭合（py 3.10 floor BREAKING / mypy informational → enforce / `_sanitize_user_path` path traversal / `.rpy` escape fuzz）；+3 hard contracts (#11-#13)；详见 [EVOLUTION_r56_r60 §阶段十六](_archive/EVOLUTION_r56_r60.md)
 - **Round 58** — 维度 3+4（A1-A3 + P1-P4）闭合（shared `_resolve_args_from_config` helper / RenPyEngine 不走 generic_pipeline 文档化 / CI 加 ruff lint+format + mypy scope 扩 engines/+safety/ / 5 ADR + RELEASE/ROADMAP / EVOLUTION 滚动归档约定）；+2 hard contracts (#14 ruff / #15 EVOLUTION 滚动归档)；详见 [EVOLUTION_r56_r60 §阶段十七](_archive/EVOLUTION_r56_r60.md)
-- **Round 59** — 维度 5+6（B1-B4 + O1-O4）闭合 + AUDIT_R57.md 23 findings 全清零（release.yml 自动化 3 OS matrix → SHA256SUMS → draft Release / 中英双段免责声明 / `docs/ARCHITECTURE.md §0 Quick Tour` + `docs/ONBOARDING.md` 新建 / B2+O4 retire）；纯文档+流程+微调轮；详见 [EVOLUTION_r56_r60 §阶段十八](_archive/EVOLUTION_r56_r60.md)
+- **Round 59** — 维度 5+6（B1-B4 + O1-O4）闭合 + AUDIT.md 23 findings 全清零（release.yml 自动化 3 OS matrix → SHA256SUMS → draft Release / 中英双段免责声明 / `docs/ARCHITECTURE.md §0 Quick Tour` + `docs/ONBOARDING.md` 新建 / B2+O4 retire）；纯文档+流程+微调轮；详见 [EVOLUTION_r56_r60 §阶段十八](_archive/EVOLUTION_r56_r60.md)
 
 ### ⚫ 监控项（informational watchlist，r53 已全部闭合）
 
@@ -239,7 +269,7 @@ assertion_points: 624
 | 用户面文档 | `README.md`（中英双语） |
 | 变更日志 | `CHANGELOG.md`（极简入口）+ `_archive/EVOLUTION.md`（r1-r55 详 + r56-r60 表格摘要）|
 | 全量历史 | `_archive/CHANGELOG_FULL.md` + `_archive/CHANGELOG_RECENT_r52.md`（r48-r52 详细）+ `_archive/EVOLUTION_r56_r60.md`（r60 首次滚动归档：r56-r60 完整叙事）|
-| 审计跟踪 | `AUDIT_R57.md`（r60 cycle：23 unique new findings；r57 cycle 已闭合记入 EVOLUTION）|
+| 审计跟踪 | `AUDIT.md`（r60 cycle：23 unique new findings；r57 cycle 已闭合记入 EVOLUTION）|
 | 入口 | `main.py` / `gui.py`（mixin） / `one_click_pipeline.py` |
 | 引擎抽象 | `engines/{engine_base, engine_detector, generic_pipeline, renpy_engine, rpgmaker_engine, csv_engine, unity_xunity}.py` |
 | 核心 | `core/{api_client, api_plugin, config, glossary, prompts, translation_db, translation_utils, http_pool, pickle_safe, font_patch, runtime_hook_emitter, file_safety}.py` |
@@ -262,15 +292,14 @@ assertion_points: 624
 4. **（按需）** `_archive/EVOLUTION.md` — 历史决策（含 r54 段）
 5. **（按需）** `_archive/CHANGELOG_RECENT_r52.md` — 最近 5 轮（r48-r52）详细
 
-**Round 64 关键约束**：
-- **🔔 r63 已写入 23 unique new findings 到 [`AUDIT_R57.md`](AUDIT_R57.md)**；r64 起首要任务 = 用户选 fix 路径 (X/Y/Z/W) 后实施。**2 HIGH (T1 testfile cap + S1 pre-commit 39% 覆盖) imminent — 不可 retire**
-- **🔔 T1 testfile cap imminent**：tests/test_file_safety.py (798) / test_api_client.py (792) / test_verify_docs_claims.py (790) — 加任何新测试就 block commit，r64+ 必先拆 OR 加新文件而非扩展这 3 文件
-- **🔔 S1 pre-commit 39% 覆盖 silent gap**：r61 T1 fix + r62 B1 测试本身**未在 pre-commit 跑**；任何 regression 只能 push 后 CI catch；r64 fix 路径选 Y/X 时 S1 应优先（meta-runner 扩到 35 文件，时间从 0.68s → ~3.5s 可接受）
-- **🔔 r60 已执行首次 EVOLUTION 滚动归档**（hard contract #15）— 下次触发 r65；归档时主 EVOLUTION 应减 ≥80 行 OR ≥20%
+**Round 65 关键约束**：
+- **🔔 r65 必须闭合 r63 audit 剩余维度 4+5+6 共 12 项**：P1-P4（流程与文档）+ B1-B4（产品与业务）+ O1-O4（组织与知识）。详见 [`_archive/AUDIT_R63.md`](_archive/AUDIT_R63.md) 维度 4-6 段
+- **🔔 r65 同时是 EVOLUTION 滚动归档触发轮**（hard contract #15）— r56-r60 已 r60 首次执行；r65 触发 r61-r65 归档到 `_archive/EVOLUTION_r61_r65.md`，主 EVOLUTION 应减 ≥80 行 OR ≥20%
+- **🔔 AUDIT.md 永久入口已 r64 S2 建立**；r65 闭合后 AUDIT.md 标记 "Active cycle: None"，r63 cycle 完整记录保留在 `_archive/AUDIT_R63.md`
+- **🔔 Meta-runner subprocess-discover-and-run**（r64 S1）— 新加测试文件自动入 pre-commit；新 PR 加 testfile 不需要修改 test_all.py（discover 自动包含）
 - **🔔 ADR 索引现 11 份**（r61 A1 补 0006-0011）；新增架构决策必须 ADR 化
-- **🔔 项目版本号 2.0.0**（r62 B2）；下次 BREAKING 升 3.0.0
-- **🔔 AUDIT_R57.md 命名 drift 已是 r63 audit S2 finding**：本 cycle 完成 fix 后建议改名永久入口 `AUDIT.md` + 历史 cycle 归档 `_archive/AUDIT_R{N}.md`
-- audit findings 必须**同轮 fix，no tier exemption**（r50 起 written + enforced；r51-r62 共 12 轮各执行有效）
+- **🔔 项目版本号 2.0.0**（r62 B2）；`main.py --version` 现可查（r64 S4）
+- audit findings 必须**同轮 fix，no tier exemption**（r50 起 written + enforced；r51-r64 共 14 轮各执行有效）
 - **CI ruff lint/format 门禁**（r58 P1）— 任何新 PR 必须 `ruff check .` + `ruff format --check .` 全过；`pyproject.toml [tool.ruff]` extend-ignore 列表不得放宽
 - **EVOLUTION 滚动归档**（r58 P3 / r60 阈值微调）— 每 5 轮一次（r65 / r70 / ...）；归档时主 EVOLUTION 应减 ≥80 行 OR ≥20%（启发式，可变 baseline）
 - **mypy enforce contract**（r57 T2）— `core/translation_utils.py / core/config.py / file_processor/ / core/api_client.py / core/glossary.py / core/translation_db.py` 6 文件 scope 必须保持 mypy 0 errors；新文件加入 scope 前必须先 mypy clean

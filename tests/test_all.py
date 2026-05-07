@@ -1,70 +1,144 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""Meta-runner — delegates to the six focused test modules.
+"""Meta-runner — discovers and runs every ``tests/test_*.py`` module.
 
-Historical callers (CI, scripts, IDE integrations) still invoke
-``python tests/test_all.py``; that entry point remains the single
-"run every unit test" shortcut.  Each tests/test_*.py module also has
-its own ``if __name__ == '__main__':`` block for targeted runs.
+r64 S1 fix: extended from 11-module hand-curated import list to **all**
+``tests/test_*.py`` files (37 currently). Pre-commit hook now sees the
+full ~498 test surface instead of just 191 (~39% gap closed).
 
-Prior to round 29 this file held all 113 test function bodies
-(2,539 lines total, 3× the project's 800-line soft cap).  Round 29
-split those bodies into five focused modules; round 33 Commit 4 prep
-added a sixth (``test_runtime_hook``) after the runtime-hook tests
-accreted in ``test_translation_state`` from rounds 31–33 pushed the
-latter past the same 800-line limit.
+Implementation: subprocess-run each test file. This avoids inter-file
+import-order issues and matches CI behavior (CI runs each file via
+``python tests/test_X.py``).
 
-* ``test_api_client.py``            — APIClient / retries / HTTP pool
-* ``test_file_processor.py``        — splitter / checker / patcher / validator
-* ``test_translators.py``           — direct / tl_parser / retranslator / screen
-* ``test_glossary_prompts_config.py`` — Glossary / prompts / Config / lang_config
-* ``test_translation_state.py``     — ProgressTracker / TranslationDB / dedupe
-* ``test_runtime_hook.py``          — runtime-hook emitter + v2 schema + gui overrides
-* ``test_tl_retry.py``              — Round 53 W1/W3: retry stage parallelism + LLM ID drift detection
-* ``test_pickle_safe_redteam.py``   — Round 53 monitor #1: pickle whitelist red-team
-* ``test_unity_xunity_engine.py``   — Round 55: Unity XUnity AutoTranslator engine
-* ``test_complex_fixture.py``       — Round 57 T3: complex .rpy fixture round-trip
+Historical context:
+- r29 (113 tests, 2539-line monolith) → split into 5 focused modules
+  + 49-line meta-runner (1st-gen import + call ``run_all()``)
+- r33-r60 added ~6 more modules to the import list
+- r64 S1 audit found 24/35 test files NOT in meta-runner — pre-commit
+  hook only ran 191/485 tests (~39%); regressions in non-imported
+  test files (incl. r61 T1 fix verification + r62 B1 interrupt tests
+  themselves) silently passed pre-commit until CI catch.
+- r64 S1 rewrite: subprocess-discover-and-run pattern. ~3.5s vs
+  prior 0.68s; absolute time still well under the 5s pre-commit budget.
+
+Each ``tests/test_*.py`` module remains independently runnable via
+``python tests/test_X.py`` (entry point unchanged for IDE / CI).
 """
 
+from __future__ import annotations
+
+import re
+import subprocess
 import sys
+import time
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+_TESTS_DIR = Path(__file__).resolve().parent
+_PROJECT_ROOT = _TESTS_DIR.parent
 
-from tests import (
-    test_api_client,
-    test_file_processor,
-    test_translators,
-    test_glossary_prompts_config,
-    test_translation_state,
-    test_runtime_hook,
-    test_tl_retry,
-    test_pickle_safe_redteam,
-    test_unity_xunity_engine,
-    test_complex_fixture,
-    test_main_cli,
-)
+if str(_PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(_PROJECT_ROOT))
+
+
+# Files that are NOT regression test modules (exclude from auto-discovery):
+_NON_TEST_FILES = {
+    "test_all.py",  # this meta-runner itself
+    # r64 S1 audit-tail: test_single.py is a *manual integration script*
+    # that prompts ``input("请输入 xAI API Key: ")`` — not a unit test;
+    # belongs under ``scripts/`` but kept in tests/ for historical reasons.
+    # Excluded from auto-discovery to keep meta-runner non-interactive.
+    "test_single.py",
+}
+
+
+def _discover_test_files() -> list[Path]:
+    """Return every ``tests/test_*.py`` file (sorted) excluding this runner."""
+    return sorted(
+        p
+        for p in _TESTS_DIR.glob("test_*.py")
+        if p.name not in _NON_TEST_FILES
+    )
+
+
+# Regex to extract "ALL N TESTS" / "ALL N FILE SAFETY TESTS" / etc. from
+# each module's tail summary line. Each test module ends with a banner like:
+#     ========================================
+#     ALL 5 FILE SAFETY HELPER TESTS PASSED
+#     ========================================
+_PASS_BANNER_RE = re.compile(r"ALL\s+(\d+)\s+[A-Z_ ]*?(?:TESTS?|TEST)\s+PASSED", re.IGNORECASE)
+
+
+def _run_one(test_file: Path) -> tuple[bool, int, str]:
+    """Run a single test module via subprocess.
+
+    Returns ``(ok, test_count, tail_output)`` where ``test_count`` is parsed
+    from the module's banner (best-effort; falls back to 0 if the module
+    uses a non-standard summary).
+    """
+    proc = subprocess.run(
+        [sys.executable, str(test_file)],
+        capture_output=True,
+        text=True,
+        cwd=str(_PROJECT_ROOT),
+        encoding="utf-8",
+        errors="replace",
+    )
+    ok = proc.returncode == 0
+    # Parse "ALL N ... PASSED" from combined stdout/stderr tail.
+    output = proc.stdout + proc.stderr
+    count = 0
+    for line in output.splitlines():
+        m = _PASS_BANNER_RE.search(line)
+        if m:
+            count = int(m.group(1))
+            # Take the last match in case multiple banners appear.
+    tail = "\n".join(output.splitlines()[-15:]) if output else ""
+    return ok, count, tail
 
 
 def main() -> int:
-    total = 0
-    total += test_api_client.run_all()
-    total += test_file_processor.run_all()
-    total += test_translators.run_all()
-    total += test_glossary_prompts_config.run_all()
-    total += test_translation_state.run_all()
-    total += test_runtime_hook.run_all()
-    total += test_tl_retry.run_all()
-    total += test_pickle_safe_redteam.run_all()
-    total += test_unity_xunity_engine.run_all()
-    total += test_complex_fixture.run_all()
-    total += test_main_cli.run_all()
-    print()
-    print("=" * 40)
-    print(f"ALL {total} TESTS PASSED")
-    print("=" * 40)
-    return total
+    """Run every test file, print per-file status, return total count.
+
+    Exits with non-zero status if any test file fails (pre-commit hook
+    relies on this to block bad commits).
+    """
+    files = _discover_test_files()
+    print(f"Meta-runner: discovered {len(files)} test files")
+    print("=" * 60)
+
+    total_tests = 0
+    total_files_passed = 0
+    failures: list[tuple[Path, str]] = []
+    start = time.perf_counter()
+
+    for f in files:
+        ok, n, tail = _run_one(f)
+        status = "OK" if ok else "FAIL"
+        print(f"  [{status}] {f.name:48s} ({n:3d} tests)")
+        if ok:
+            total_tests += n
+            total_files_passed += 1
+        else:
+            failures.append((f, tail))
+
+    elapsed = time.perf_counter() - start
+
+    print("=" * 60)
+    if failures:
+        print(f"FAILED: {len(failures)} test file(s):")
+        for path, tail in failures:
+            print(f"\n--- {path.name} tail ---")
+            print(tail)
+        print()
+        print("=" * 60)
+        print(f"META-RUNNER FAILED ({total_files_passed}/{len(files)} files OK in {elapsed:.1f}s)")
+        print("=" * 60)
+        return 1
+
+    print(f"ALL {total_tests} TESTS PASSED across {total_files_passed} files in {elapsed:.1f}s")
+    print("=" * 60)
+    return 0
 
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main())

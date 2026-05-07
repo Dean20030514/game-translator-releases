@@ -237,37 +237,45 @@ def test_default_language_basic():
     print("[OK] test_default_language_basic")
 
 
-def test_default_language_ja():
-    """Generates correct default_language.rpy for Japanese."""
+def test_default_language_ja_kwarg_ignored_post_r52():
+    """r52 C4 BREAKING: ``target_lang`` kwarg kept for signature stability
+    but ignored — output always ``config.default_language = "chinese"``.
+
+    Pre-r64 this test asserted ``japanese`` and was silently broken since
+    r52; r64 S1 meta-runner expansion surfaced it. Updated to pin the
+    post-r52 behaviour: regardless of kwarg, output is ``chinese``.
+    """
     with tempfile.TemporaryDirectory() as td:
         td = Path(td)
         result = _generate_default_language(td, "ja")
         assert result is True
         content = (td / "default_language.rpy").read_text(encoding="utf-8")
-        assert 'config.default_language = "japanese"' in content
-    print("[OK] test_default_language_ja")
+        assert 'config.default_language = "chinese"' in content, (
+            "r52 C4 contract: target_lang kwarg ignored, always 'chinese'"
+        )
+    print("[OK] test_default_language_ja_kwarg_ignored_post_r52")
 
 
-def test_default_language_ko():
-    """Generates correct default_language.rpy for Korean."""
+def test_default_language_ko_kwarg_ignored_post_r52():
+    """r52 C4 BREAKING: see ``test_default_language_ja_kwarg_ignored_post_r52``."""
     with tempfile.TemporaryDirectory() as td:
         td = Path(td)
         result = _generate_default_language(td, "ko")
         assert result is True
         content = (td / "default_language.rpy").read_text(encoding="utf-8")
-        assert 'config.default_language = "korean"' in content
-    print("[OK] test_default_language_ko")
+        assert 'config.default_language = "chinese"' in content
+    print("[OK] test_default_language_ko_kwarg_ignored_post_r52")
 
 
-def test_default_language_zh_tw():
-    """Generates correct default_language.rpy for Traditional Chinese."""
+def test_default_language_zh_tw_kwarg_ignored_post_r52():
+    """r52 C4 BREAKING: see ``test_default_language_ja_kwarg_ignored_post_r52``."""
     with tempfile.TemporaryDirectory() as td:
         td = Path(td)
         result = _generate_default_language(td, "zh-tw")
         assert result is True
         content = (td / "default_language.rpy").read_text(encoding="utf-8")
-        assert 'config.default_language = "traditional_chinese"' in content
-    print("[OK] test_default_language_zh_tw")
+        assert 'config.default_language = "chinese"' in content
+    print("[OK] test_default_language_zh_tw_kwarg_ignored_post_r52")
 
 
 def test_default_language_no_overwrite():
@@ -355,9 +363,9 @@ ALL_TESTS = [
     test_collect_files,
     # Default language (5)
     test_default_language_basic,
-    test_default_language_ja,
-    test_default_language_ko,
-    test_default_language_zh_tw,
+    test_default_language_ja_kwarg_ignored_post_r52,
+    test_default_language_ko_kwarg_ignored_post_r52,
+    test_default_language_zh_tw_kwarg_ignored_post_r52,
     test_default_language_no_overwrite,
     # RPA header format (1)
     test_pack_header_format,

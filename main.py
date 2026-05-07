@@ -192,10 +192,35 @@ def _maybe_warn_on_symlink(args: argparse.Namespace) -> None:
 # ============================================================
 
 
+def _read_project_version() -> str:
+    """r64 S4 fix: read version from pyproject.toml (single source of truth).
+
+    Falls back to "unknown" if pyproject.toml is missing or unparseable.
+    Avoids tomllib import for Python 3.10 compatibility (tomllib is 3.11+);
+    uses minimal regex parse since we only need ``version = "X.Y.Z"``.
+    """
+    import re
+
+    pyproject = Path(__file__).resolve().parent / "pyproject.toml"
+    try:
+        text = pyproject.read_text(encoding="utf-8")
+    except OSError:
+        return "unknown"
+    m = re.search(r'^version\s*=\s*"([^"]+)"', text, re.MULTILINE)
+    return m.group(1) if m else "unknown"
+
+
 def main():
     parser = argparse.ArgumentParser(
         description="Ren'Py 整文件翻译工具 — AI 自主识别翻译内容",
         formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
+    # r64 S4 fix: --version flag (was missing pre-r64; users couldn't query
+    # installed version without manually reading pyproject.toml).
+    parser.add_argument(
+        "--version",
+        action="version",
+        version=f"%(prog)s {_read_project_version()}",
     )
     parser.add_argument(
         "--game-dir",
