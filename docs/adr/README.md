@@ -13,6 +13,12 @@
 | [0003](0003-subprocess-sandbox-only-plugin.md) | Custom plugin 强制 subprocess sandbox | Accepted (BREAKING) | r52 C3 |
 | [0004](0004-renpy-stays-on-dedicated-pipelines.md) | Ren'Py 不走 generic_pipeline | Accepted | r54 |
 | [0005](0005-safety-as-toplevel-package.md) | `safety/` 顶层独立 package | Accepted | r56 M2 |
+| [0006](0006-python-310-floor.md) | Python ≥ 3.10 (PEP 604) | Accepted (BREAKING) | r57 T1 |
+| [0007](0007-mypy-enforce-scope.md) | Mypy enforce 6 文件核心 scope | Accepted | r57 T2 |
+| [0008](0008-path-traversal-guard.md) | Path traversal 防护 `_FORBIDDEN_PATH_PREFIXES` | Accepted | r57 S2 |
+| [0009](0009-ruff-ci-gate.md) | Ruff lint+format CI gate | Accepted | r58 P1 |
+| [0010](0010-evolution-rolling-archive.md) | EVOLUTION 5 轮滚动归档 | Accepted | r58 P3 / r60 首执 |
+| [0011](0011-shared-config-helper.md) | `_resolve_args_from_config` shared helper | Accepted | r58 A1 |
 
 ## ADR 模板
 

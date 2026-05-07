@@ -177,10 +177,48 @@ def test_tl_pipeline_noop_when_fully_translated() -> None:
     print("[OK] test_tl_pipeline_noop_when_fully_translated")
 
 
+def test_w_round61_t1_selftest_cleans_tempfiles() -> None:
+    """r61 T1 fix: ``run_self_tests`` must unlink all tempfiles it creates.
+
+    Pre-r61 ``_write_tmp`` used ``delete=False`` and never unlinked, leaking ~14
+    .rpy files per self-test invocation. Post-r61 the files are tracked in a
+    closure list and cleaned up at the end of the function.
+
+    This test snapshots the system temp dir before/after running the self-test
+    and asserts that no new .rpy files persist.
+    """
+    import tempfile as _tempfile
+    import io
+    import contextlib
+    from translators._tl_parser_selftest import run_self_tests
+
+    tmp_root = Path(_tempfile.gettempdir())
+
+    def _snapshot_rpy_tempfiles() -> set[str]:
+        return {p.name for p in tmp_root.glob("*.rpy")}
+
+    before = _snapshot_rpy_tempfiles()
+
+    # Self-test prints to stdout; capture to keep test output clean.
+    buf = io.StringIO()
+    with contextlib.redirect_stdout(buf):
+        run_self_tests()
+
+    after = _snapshot_rpy_tempfiles()
+
+    leaked = after - before
+    assert not leaked, (
+        f"r61 T1 contract violated: run_self_tests leaked {len(leaked)} "
+        f"tempfile(s) under {tmp_root}: {sorted(leaked)[:5]}..."
+    )
+    print("[OK] test_w_round61_t1_selftest_cleans_tempfiles")
+
+
 if __name__ == "__main__":
     test_tl_scan_and_fill_cycle()
     test_tl_pipeline_noop_when_fully_translated()
+    test_w_round61_t1_selftest_cleans_tempfiles()
     print()
     print("=" * 40)
-    print("ALL 2 TL-PIPELINE TESTS PASSED")
+    print("ALL 3 TL-PIPELINE TESTS PASSED")
     print("=" * 40)

@@ -232,7 +232,13 @@
 | 59 | 维度 5+6（B1-B4 + O1-O4）闭合 + AUDIT_R57.md 收尾：release 自动化（3 OS matrix → SHA256SUMS → draft Release）+ 中英双段免责声明 + `docs/ARCHITECTURE.md §0 Quick Tour` + `docs/ONBOARDING.md` 新建；纯文档+流程+微调轮 |
 | 60 | EVOLUTION 滚动归档首次执行（hard contract #15）；重做 6 维度审计收集 23 unique new findings（1 HIGH A1 ADR 缺漏 + 11 MEDIUM + 11 LOW）重写 [`AUDIT_R57.md`](../AUDIT_R57.md)；fix 由 r61+ 执行 |
 
-**连续 20 轮 0 CRITICAL correctness 保持**（r35-r60）。下次滚动归档：**r65** → `_archive/EVOLUTION_r61_r65.md`。
+## 阶段二十（r61）— r60 audit 路径 X 第一波（维度 1+2+3 共 11 项）+ 21st 0-CRITICAL Streak
+
+| 轮 | 主题 |
+|----|------|
+| 61 | r60 audit 路径 X 第一波闭合 11 项：(A1 HIGH) 补 6 份 ADR 0006-0011 文档化 r57-r58 全部架构决策（py 3.10 floor / mypy enforce / path traversal / ruff CI / EVOLUTION rolling archive / shared config helper）+ ADR 索引 5→11；(T1) `_tl_parser_selftest.py` tempfile 泄漏 fix + 1 unit test；(T2) CONTRIBUTING.md 加"新代码 100% type hint"PR 规则；(T3+A3) gui.py 594 行 cap watchlist + "新 PR 加 GUI 功能必须先拆"约束；(T4) benchmark watchlist；(S1) `.github/workflows/test_macos.yml` nightly schedule 新建（cron + workflow_dispatch，3.10/3.12/3.13 matrix）；(S2) Plugin JSONL 协议视为稳定（`docs/REFERENCE.md §7b` 字段集 + 不加 version 决策）；(S3+S4+A2) 3 项 retire to architectural decision（API key 内存 / prompt injection / GUI subprocess.Popen 隔离）。+1 测试（T1 cleanup verification）；hard contracts 仍 15（A1 是已有契约 #11-#15 的文档化抽取，不新增）|
+
+**连续 21 轮 0 CRITICAL correctness 保持**（r35-r61）。下次滚动归档：**r65** → `_archive/EVOLUTION_r61_r65.md`。
 
 ---
 

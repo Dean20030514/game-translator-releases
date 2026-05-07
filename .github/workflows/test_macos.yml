@@ -1,0 +1,50 @@
+name: Tests (macOS nightly)
+
+# r61 S1 fix: macos-latest coverage gap (test.yml only runs ubuntu+windows).
+# release.yml DOES run macos-latest at v* tag, but that path doesn't exercise
+# the unit test suite on macOS. This workflow runs nightly + on-demand to
+# catch macOS-specific regressions (tempfile / pathlib / os.fstat / subprocess
+# semantics) without inflating PR latency on the main test.yml workflow.
+
+on:
+  schedule:
+    # 04:00 UTC daily (after typical commit hours, before users wake)
+    - cron: "0 4 * * *"
+  workflow_dispatch:
+    # Allow manual trigger from Actions UI for ad-hoc verification
+
+jobs:
+  test:
+    runs-on: macos-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.10", "3.12", "3.13"]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Syntax check (py_compile)
+        run: |
+          python -m py_compile main.py
+          python -m py_compile one_click_pipeline.py
+          python -m py_compile gui.py
+          python -m py_compile gui_handlers.py
+          python -m py_compile gui_pipeline.py
+
+      - name: Verify docs claims (fast)
+        run: python scripts/verify_docs_claims.py --fast
+
+      - name: Run all tests (meta-runner)
+        run: python tests/test_all.py
+
+      - name: tl_parser self-test
+        run: python -m translators.tl_parser --test
+
+      - name: Repo rename consistency tests
+        run: python tests/test_repo_rename_consistency.py

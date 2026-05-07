@@ -54,6 +54,7 @@ python scripts/verify_docs_claims.py --fast # docs claim 同步性
 - 公共函数签名必须有类型注解
 - 文档字符串必须解释**为什么**（不是"做了什么"）
 - 单文件 ≤ 800 行（pre-commit hook 自动 enforce）
+- **新代码 100% type hint**（r61 T2 规则）：新增 `def` 必须有完整签名 hint（args + return）；不强求 backfill 存量代码；6 文件核心 scope（见 [ADR 0007](docs/adr/0007-mypy-enforce-scope.md)）必须 mypy 0 errors
 
 ### 引入新引擎
 
@@ -115,6 +116,7 @@ python scripts/verify_docs_claims.py --fast # docs claim sync check
 - Public function signatures must have type annotations
 - Docstrings must explain **why** (not "what")
 - Single file ≤ 800 lines (pre-commit hook auto-enforces)
+- **New code 100% type hint** (r61 T2 rule): new `def` must have full signature hints (args + return); no backfill required for existing code; the 6-file core scope (see [ADR 0007](docs/adr/0007-mypy-enforce-scope.md)) must remain mypy clean
 
 ### Adding a New Engine
 

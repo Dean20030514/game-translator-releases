@@ -34,6 +34,7 @@ def run_self_tests() -> None:
 
     passed = 0
     failed = 0
+    _tmp_files: list[str] = []
 
     def _assert(condition: bool, msg: str):
         nonlocal passed, failed
@@ -47,7 +48,15 @@ def run_self_tests() -> None:
         f = tempfile.NamedTemporaryFile(mode="w", suffix=".rpy", delete=False, encoding="utf-8")
         f.write(text)
         f.close()
+        _tmp_files.append(f.name)
         return f.name
+
+    def _cleanup_tmp_files() -> None:
+        for path in _tmp_files:
+            try:
+                os.unlink(path)
+            except OSError:
+                pass
 
     print("运行自测...\n")
 
@@ -447,6 +456,9 @@ def run_self_tests() -> None:
         print(f", {failed} 失败")
     else:
         print(" OK")
+
+    # r61 T1 fix: cleanup tempfiles created by _write_tmp (delete=False)
+    _cleanup_tmp_files()
 
 
 if __name__ == "__main__":

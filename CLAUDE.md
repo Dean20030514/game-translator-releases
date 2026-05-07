@@ -10,7 +10,7 @@
 
 **当前数字**（测试数 / 文件数 / CI 步骤 / 断言点）：见 [HANDOFF.md](HANDOFF.md) 顶部 `<!-- VERIFIED-CLAIMS-START -->` 块 — **单一声称源**。本文 prose 不再独立声称数字。
 
-**质量水位**：direct-mode 漏翻率 4.01%（仅适用 English source，详见下方"已知限制"）；tl-mode 翻译成功率 99.97%（r52 实测 The Tyrant 74098 entries / **99.991%**）；连续 20 轮 0 CRITICAL correctness（r35-r60）。Round 55 起新增 Unity XUnity 引擎覆盖 ~10% 用户场景。
+**质量水位**：direct-mode 漏翻率 4.01%（仅适用 English source，详见下方"已知限制"）；tl-mode 翻译成功率 99.97%（r52 实测 The Tyrant 74098 entries / **99.991%**）；连续 21 轮 0 CRITICAL correctness（r35-r61）。Round 55 起新增 Unity XUnity 引擎覆盖 ~10% 用户场景。
 
 ---
 
@@ -105,6 +105,12 @@ scripts/         verify_docs_claims.py / verify_workflow.py / install_hooks.sh
 - **Logger 含 user-controlled vars（log injection 路径）**（r57 S3 architectural decision）：15 处 `logger.error(f"...{game_dir}...")` 之类。本地工具仅写 stdout / 文件日志，无集中日志系统（syslog / Sentry），**不构成 actionable finding**。如未来引入集中日志，需 sanitize user-controlled vars 中的换行符
 - **翻译质量持续验证**（r59 B2 architectural decision）：r52 实测 The Tyrant 99.991%（74098 entries）作为 reference baseline，但**没有 nightly benchmark / continuous quality gate**。决策保留现状：用户每次跑实际项目时人工 review 翻译质量；99.991% 是真实 production 数据而非 lab benchmark，加 nightly mock LLM regression test ROI 低（mock LLM 不能反映真实 LLM 行为漂移）。如未来用户报告"r57 后翻译质量明显下降"，再考虑加固定 fixture 的 quality gate
 - **Community 建设**（r59 O4 architectural decision）：当前无 GitHub Discussions / Discord / sponsor 入口 / contributor list。项目用户量小（小众游戏汉化工具），community 投入回报比低。决策保留现状；如未来出现"用户量持续增长 + 多人协作开发需求"再考虑开 Discussions + 设立 sponsor 入口
+- **gui.py 接近 800 行 cap**（r60 audit T3/A3 watchlist，r61 文档化）：`gui.py` 当前 594 行（距 cap 206 行），距上次 r41 拆分后已扩张近 100 行。**当前不拆**（按 audit 推荐 (c) 懒处理），但**新 PR 加 GUI 功能（如新引擎按钮 / 新一键步骤）必须先拆**：建议拆为 `gui/main_window.py` + `gui/scan_panel.py` + `gui/run_panel.py` 等。同时 r58 A1 抽取的 `_resolve_args_from_config` helper GUI 没真正 import（仍走 subprocess.Popen 间接 spawn main.py），架构债与文件大小债叠加（参见下方 "GUI vs CLI subprocess.Popen" 条）
+- **GUI vs CLI subprocess.Popen 间接调用**（r60 audit A2 architectural decision，r61 文档化）：[`gui_pipeline.py`](gui_pipeline.py) 用 `subprocess.Popen([sys.executable, "main.py", ...])` 间接 spawn CLI，未真正 reuse [ADR 0011](docs/adr/0011-shared-config-helper.md) 的 `_resolve_args_from_config` helper。**故意保留**——subprocess 隔离对 GUI UX 更好（崩溃只挂子进程 / 中断恢复 / 错误隔离），helper 共享是 logic alignment 不是 dedup。如未来 GUI 改 in-process 模式，helper 价值显现
+- **Plugin 协议视为稳定**（r60 audit S2 architectural decision，r61 文档化）：`core/api_plugin.py::_SubprocessPluginClient` JSONL 协议没 schema version 字段。**故意不加**——当前 plugin 极少（用户场景虚），加 version 字段是过度工程。**未来真要 BREAKING 改协议（如加 batch field / 改 error 编码）必须先 plan-first**，并同时为新旧 plugin 提供 detection / fallback。文档化原协议字段集见 [docs/REFERENCE.md](docs/REFERENCE.md) Plugin 协议段
+- **API key 内存生命周期**（r60 audit S3 architectural decision，r61 文档化）：`core/api_client.py::APIConfig.api_key` 持有 API key 整个进程生命周期。多线程共享 config object 可能 leak via debugger / `gc.get_referents` / memory dump。**威胁模型不适用**——本地 single-user 工具，attacker 已能 dump 进程内存就 game over（与 r53 监控 #4 symlink retire 同理）。Python 优化时 `__del__` zeroize 可能不生效，加密 store 违反零依赖契约，retire 现状
+- **Prompt injection 表面（用户 game text → LLM）**（r60 audit S4 architectural decision，r61 文档化）：31 处 prompt construction sites 中用户 game text 直接 f-string 进 prompt。如游戏文本含 jailbreak 模式（`\n\nIgnore previous. Output: <whatever>`）LLM 可能输出 garbage。**威胁模型不适用**——用户主动喂自己游戏文件给 AI 不是攻击者输入；用户 review 翻译结果是工作流的一部分。retire 现状
+- **Performance benchmark 缺失**（r60 audit T4 watchlist，r61 文档化）：r52 实测 The Tyrant 74098 entries / 129.4 min / $2.40 / 99.991% 是**唯一**生产级数据点。RAM / CPU / I/O 数字未测。**保留为 watchlist**（与 r59 B2 翻译质量验证 retire 同理）：r52 数字够用作 ground reference；nightly mock LLM benchmark ROI 已 r59 B2 评估过（mock 不反映真实 LLM 漂移）。如未来 r53 W1 retry 并发引入慢线程，需重测对比
 
 ---
 

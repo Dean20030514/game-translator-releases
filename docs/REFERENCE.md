@@ -136,6 +136,43 @@
 
 ---
 
+## 7b. Plugin JSONL 协议（r60 audit S2 → r61 文档化为稳定）
+
+`core/api_plugin.py::_SubprocessPluginClient` 用 line-delimited JSON 与 plugin subprocess 双向通信。**协议视为稳定**——目前无 schema version 字段（故意不加，见下方"r61 决策"段）。
+
+### 7b.1 Request 格式（main → plugin）
+
+```json
+{"action": "translate", "messages": [...], "model": "...", "max_tokens": N}
+```
+
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| `action` | str | 当前仅 `"translate"` |
+| `messages` | list[dict] | OpenAI-compatible chat messages |
+| `model` | str | LLM model identifier |
+| `max_tokens` | int | response 长度上限 |
+
+### 7b.2 Response 格式（plugin → main）
+
+```json
+{"ok": true, "content": "..."}
+```
+
+或失败：
+
+```json
+{"ok": false, "error": "..."}
+```
+
+### 7b.3 r61 决策：协议稳定，不加 version 字段
+
+r60 audit S2 评估：当前 plugin 极少（用户场景虚），加 `"protocol_version": 1` 字段是过度工程。**未来真要 BREAKING 改协议（如加 batch field / 改 error 编码）必须先 plan-first**，并同时为新旧 plugin 提供 detection / fallback 路径。
+
+参见 [`CLAUDE.md`](../CLAUDE.md) "Plugin 协议视为稳定" 段。
+
+---
+
 ## 7a. 配置层级优先级（r58 A2 文档化）
 
 CLI 参数 / 环境变量 / 配置文件 / 默认值 在多个来源出现时，**高优先级覆盖低优先级**。下表按从高到低排序：

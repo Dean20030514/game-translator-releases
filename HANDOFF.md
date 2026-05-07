@@ -1,10 +1,10 @@
-# HANDOFF — Round 60 末 → Round 61 起点（**首次 EVOLUTION 滚动归档已执行 + 重做 6 维度审计 — 23 新 findings 待 fix**）
+# HANDOFF — Round 61 末 → Round 62 起点（**r60 audit 维度 1+2+3 闭合 11 项；r62 待闭合维度 4+5+6 共 12 项**）
 
 <!-- VERIFIED-CLAIMS-START -->
-tests_total: 494
+tests_total: 495
 test_files: 35
 ci_steps: 36
-assertion_points: 620
+assertion_points: 621
 <!-- VERIFIED-CLAIMS-END -->
 
 > **上方 fenced 块是声明数字的唯一位置**。其他文档（`CLAUDE.md` / `.cursorrules` / `CHANGELOG.md` / `_archive/EVOLUTION.md` / `README.md` 等）只能引用这些数字，**不能重新声明**。`scripts/verify_docs_claims.py` 在 pre-commit hook 自动检查，drift fails the commit。
@@ -22,11 +22,11 @@ assertion_points: 620
 
 ## 状态一句话
 
-纯 Python 零依赖**zh-only**游戏汉化工具。**Round 60 完成两件事**：(1) **EVOLUTION 滚动归档首次执行**（r58 P3 hard contract #15 触发）— 抽 r56-r60 5 阶段叙事到新文件 [`_archive/EVOLUTION_r56_r60.md`](_archive/EVOLUTION_r56_r60.md)，主 [`_archive/EVOLUTION.md`](_archive/EVOLUTION.md) 仅留 5 行表格摘要 + 1 个 archive 注释；wc -l 364 → 276（**-88 行 / 24% 缩减**，启发式阈值 100 行因 r56-r60 中 3 轮是 doc-only 短叙事而未达，实质满足契约"防无限增长"意图）；(2) **重做 6 维度深度债务审计** — 扫描确认 r57 audit 23 findings 全闭合，**收集 23 unique new findings 重写 [`AUDIT_R57.md`](AUDIT_R57.md)**：1 HIGH (A1 ADR 缺漏) + 11 MEDIUM + 11 LOW，按"技术 / 质量与安全 / 架构与设计 / 流程与文档 / 产品与业务 / 组织与知识"6 维度分类；本轮**仅完成 audit 报告 + 归档**，**不实施 fix**（用户决策路径 X/Y/Z/W 后由 r61+ 执行）。**连续 20 轮 0 CRITICAL correctness**（r35-r60）。**下次滚动归档：r65** → `_archive/EVOLUTION_r61_r65.md`。
+纯 Python 零依赖**zh-only**游戏汉化工具。**Round 61 完成 r60 audit 路径 X 第一波 — 维度 1+2+3 共 11 项 fix 全闭合**：(A1 HIGH) 补 6 份 ADR (`docs/adr/0006-0011`) 覆盖 r57-r58 全部架构决策（py 3.10 floor / mypy enforce / path traversal / ruff CI / EVOLUTION rolling archive / shared config helper）+ 索引更新；(T1) `_tl_parser_selftest.py` tempfile 泄漏 fix（`_tmp_files` 跟踪 + `_cleanup_tmp_files` 末尾调用）+ 1 单元测试验证 tempdir snapshot diff = 0；(T2) CONTRIBUTING.md 加"新代码 100% type hint" PR 规则（中英双段）；(T3) gui.py 接近 cap watchlist 文档化 + "新 PR 加 GUI 功能必须先拆"约束；(T4) Performance benchmark 缺失 watchlist；(S1) 新建 `.github/workflows/test_macos.yml` (nightly cron + workflow_dispatch，3.10/3.12/3.13 matrix)；(S2) Plugin JSONL 协议视为稳定（`docs/REFERENCE.md §7b` 文档化字段集 + 不加 version 决策）；(S3) API key 内存生命周期 retire to architectural decision；(S4) Prompt injection 表面 retire to architectural decision；(A2) GUI subprocess.Popen 间接调用 retire to architectural decision；(A3) 引用 T3。**连续 21 轮 0 CRITICAL correctness**（r35-r61）。**下一轮 r62 闭合维度 4+5+6 共 12 项**（P1-P4 + B1-B4 + O1-O4）。
 
 ## 同步状态
 
-- r60 单 commit 待 push（NEVER push 政策保留给用户）
+- r61 单 commit 待 push（NEVER push 政策保留给用户）
 - 本地未 push（按 NEVER push 政策保留 commit 决策给用户）
 - pre-commit hook 已激活（`git config core.hooksPath = .git-hooks`）
 - 4 件套 + r52 C1 push-status drift check 自动 enforce：py_compile + 800 行 cap + meta-runner + `verify_docs_claims --fast` (含 push-status check)
@@ -68,9 +68,11 @@ assertion_points: 620
 | 用户面文档 | ✅ **r59 B4**：README 中英双段加"免责声明"（翻译产物法律责任由用户承担）|
 | 错误信息一致化 | ✅ **r59 B3**：5 处英文 message 中文化；prefix 保持英文 caps（已成熟惯例 + grep 友好）|
 | AUDIT_R57.md 23 findings (r57 cycle) | ✅ **r59 末全闭合**（r57 8 + r58 8 + r59 8 - 1 retire 复用 = 23）|
-| AUDIT_R57.md 23 findings (r60 cycle) | 🟡 **r60 末写入**（1 HIGH + 11 MEDIUM + 11 LOW）— 待 r61+ fix |
+| AUDIT_R57.md 23 findings (r60 cycle) | 🟡 **r61 闭合 11 项**（A1 + T1-T4 + S1-S4 + A2-A3）；r62 待闭合 12 项（P1-P4 + B1-B4 + O1-O4） |
+| ADR 覆盖 | ✅ **r61 A1**：补 ADR 0006-0011 共 6 份（py 3.10 floor / mypy enforce / path traversal / ruff CI / EVOLUTION rolling archive / shared config helper）|
+| macOS CI 覆盖 | ✅ **r61 S1**：`.github/workflows/test_macos.yml` nightly schedule（cron + workflow_dispatch，3.10/3.12/3.13）|
 | EVOLUTION 滚动归档 | ✅ **r60 首次执行**（hard contract #15）— `_archive/EVOLUTION_r56_r60.md` 新建；主 EVOLUTION.md 364→276 (-88 / 24%) |
-| 累计审计 | ✅ 连续 20 轮 0 CRITICAL correctness（r35-r60） |
+| 累计审计 | ✅ 连续 21 轮 0 CRITICAL correctness（r35-r61） |
 
 ## 推荐的 Round 56+ 工作项
 
@@ -91,6 +93,37 @@ assertion_points: 620
 ### ✅ Round 55 完成（1 项；从 actionable backlog 移到 已完成）
 
 - ~~**Unity XUnity AutoTranslator 接入**~~ — **r55 完成**：[`engines/unity_xunity.py`](engines/unity_xunity.py) 实现 detect/extract/write_back，支持 `original=translation` 普通行 + `//` 注释保留 + `r:"<pattern>"="<replacement>"` 正则规则（pattern 不动，仅 replacement 提交 LLM）+ UTF-8 BOM round-trip + CRLF/LF 行尾保留 + 50 MB OOM cap + TOCTOU 防御。CLI `--engine unity` 与 `--engine unity_xunity` 都接受。16 单元测试 PASS（含 round-trip byte-identical assertion）。
+
+### ✅ Round 61 完成（r60 audit 路径 X 第一波 — 维度 1+2+3 共 11 项 fix 全闭合）
+
+> r60 末用户选**路径 X**（全部 23 项 fix，约 r61-r62 两轮）。r61 推进维度 1+2+3 共 11 项（A1 + T1-T4 + S1-S4 + A2-A3）。剩余维度 4+5+6 共 12 项给 r62。
+
+**1. A1 HIGH — 补 6 份 ADR**（项目历史最大 ADR 批量）：
+- [`docs/adr/0006-python-310-floor.md`](docs/adr/0006-python-310-floor.md) — Python ≥ 3.10 (PEP 604 union syntax)，r57 T1 引入 BREAKING
+- [`docs/adr/0007-mypy-enforce-scope.md`](docs/adr/0007-mypy-enforce-scope.md) — Mypy enforce 6 文件核心 scope，r57 T2 informational → enforce
+- [`docs/adr/0008-path-traversal-guard.md`](docs/adr/0008-path-traversal-guard.md) — Path traversal `_FORBIDDEN_PATH_PREFIXES`，r57 S2
+- [`docs/adr/0009-ruff-ci-gate.md`](docs/adr/0009-ruff-ci-gate.md) — Ruff lint+format CI gate，r58 P1
+- [`docs/adr/0010-evolution-rolling-archive.md`](docs/adr/0010-evolution-rolling-archive.md) — EVOLUTION 5 轮滚动归档，r58 P3 / r60 首次执行 + 阈值微调（≥80 行 OR ≥20%）
+- [`docs/adr/0011-shared-config-helper.md`](docs/adr/0011-shared-config-helper.md) — `_resolve_args_from_config` shared helper，r58 A1
+- [`docs/adr/README.md`](docs/adr/README.md) 索引更新（5 → 11 ADRs）
+
+**2. T1-T4 + S1-S4（技术债 + 质量与安全债）**：
+- (T1) `translators/_tl_parser_selftest.py` tempfile 泄漏 fix — `_write_tmp` 改写为 append `_tmp_files` list，`_cleanup_tmp_files()` 在 `run_self_tests()` 末尾调用 unlink；新单元测试 `tests/test_tl_pipeline.py::test_w_round61_t1_selftest_cleans_tempfiles` 用 tempdir snapshot diff = 0 验证（tests_total +1）
+- (T2) CONTRIBUTING.md "代码风格" / "Style" 段加 "新代码 100% type hint" PR 规则（中英双段）；不强求 backfill
+- (T3) gui.py 接近 800 行 cap（594 行）watchlist 文档化 — CLAUDE.md "已知限制" 段加约束 "新 PR 加 GUI 功能必须先拆"，提示拆 `gui/main_window.py` + `gui/scan_panel.py` 等
+- (T4) Performance benchmark 缺失 watchlist — 与 r59 B2 翻译质量验证 retire 同理（mock 不反映真实 LLM 漂移）
+- (S1) `.github/workflows/test_macos.yml` 新建 — nightly schedule (`cron "0 4 * * *"`) + `workflow_dispatch` + 3.10/3.12/3.13 matrix；macOS-specific regressions（`tempfile` / `pathlib` / `os.fstat` / subprocess）入测但不增 PR latency
+- (S2) Plugin JSONL 协议视为稳定 — `docs/REFERENCE.md §7b` 新加段（request/response 字段集 + r61 决策不加 version 字段）+ CLAUDE.md "已知限制" 段交叉引用；未来 BREAKING 必须先 plan-first
+- (S3) API key 内存生命周期 retire to architectural decision — 本地 single-user 工具威胁模型不适用（与 r53 监控 #4 symlink retire 同理）
+- (S4) Prompt injection 表面 retire to architectural decision — 用户主动喂自己游戏文件给 AI 不是攻击者输入
+
+**3. A2-A3（架构与设计债）**：
+- (A2) GUI subprocess.Popen 间接调用 retire to architectural decision — subprocess 隔离对 GUI UX 更好（崩溃只挂子进程 / 中断恢复 / 错误隔离），保留 `gui_pipeline.py` Popen 模式；ADR 0011 § "architectural decision" 标注 helper 当前 single-caller
+- (A3) gui.py 接近 cap — 重复 finding，引用 T3
+
+**数字增量（VERIFIED-CLAIMS）**：tests_total 494 → 495 (+1: T1 test); test_files 35 unchanged; ci_steps 36 unchanged（test_macos.yml 是独立 workflow）; assertion_points 620 → 621 (+1)。
+
+**hard contracts 仍 15**（r61 ADR 0006-0011 是已有 hard contracts #11-#15 的文档化抽取，不新增契约；A1 fix 后未来维护者可在 `docs/adr/` 一站式索引到所有架构决策）。
 
 ### 🟡 Round 60 完成（EVOLUTION 滚动归档首次执行 + 重做 6 维度审计 — 23 新 findings 待 fix）
 
@@ -256,10 +289,11 @@ assertion_points: 620
 4. **（按需）** `_archive/EVOLUTION.md` — 历史决策（含 r54 段）
 5. **（按需）** `_archive/CHANGELOG_RECENT_r52.md` — 最近 5 轮（r48-r52）详细
 
-**Round 61 关键约束**：
+**Round 62 关键约束**：
+- **🔔 r62 必须闭合 r60 audit 剩余维度 4+5+6 共 12 项**：P1-P4 (流程与文档) + B1-B4 (产品与业务) + O1-O4 (组织与知识)。详见 [`AUDIT_R57.md`](AUDIT_R57.md) 维度 4-6 段
 - **🔔 r60 已执行首次 EVOLUTION 滚动归档**（hard contract #15）— 下次触发 r65；归档时主 EVOLUTION 应减 ≥80 行 OR ≥20%（r60 实测 88/24% 通过）
-- **🔔 r60 重做 audit 已写入 23 新 findings 到 [`AUDIT_R57.md`](AUDIT_R57.md)**；r61 起首要任务 = 用户选 fix 路径 (X/Y/Z/W) 后实施。**1 HIGH (A1 ADR 缺漏) 不可 retire**
-- audit findings 必须**同轮 fix，no tier exemption**（r50 起 written + enforced；r51-r60 共 10 轮各执行有效）
+- **🔔 ADR 索引现 11 份**（r61 A1 补 0006-0011）；新增架构决策必须 ADR 化（不仅 EVOLUTION 段记一笔）
+- audit findings 必须**同轮 fix，no tier exemption**（r50 起 written + enforced；r51-r61 共 11 轮各执行有效）
 - **CI ruff lint/format 门禁**（r58 P1）— 任何新 PR 必须 `ruff check .` + `ruff format --check .` 全过；`pyproject.toml [tool.ruff]` extend-ignore 列表不得放宽
 - **EVOLUTION 滚动归档**（r58 P3 / r60 阈值微调）— 每 5 轮一次（r65 / r70 / ...）；归档时主 EVOLUTION 应减 ≥80 行 OR ≥20%（启发式，可变 baseline）
 - **mypy enforce contract**（r57 T2）— `core/translation_utils.py / core/config.py / file_processor/ / core/api_client.py / core/glossary.py / core/translation_db.py` 6 文件 scope 必须保持 mypy 0 errors；新文件加入 scope 前必须先 mypy clean
