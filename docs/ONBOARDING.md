@@ -42,7 +42,7 @@ python main.py --help
 |------|------|
 | 知道项目当前状态 | [`HANDOFF.md`](../HANDOFF.md) — 当前轮次 + 已完成 + 推荐下一步 + Round N+1 约束 |
 | 理解 10 大开发原则 + 模块图 + 维护规则 | [`CLAUDE.md`](../CLAUDE.md) |
-| 找架构决策 / "为什么这样设计？" | [`docs/adr/`](adr/) — 5 份 ADR（zero-deps / zh-only / subprocess-plugin / RenPy-dedicated / safety-toplevel）|
+| 找架构决策 / "为什么这样设计？" | [`docs/adr/`](adr/) — 见 [`docs/adr/README.md`](adr/README.md) 索引（r64 P2 改为索引引用避免数字 drift）|
 | 看完整模块图 / 三种翻译模式数据流 / 一键流水线 | [`docs/ARCHITECTURE.md`](ARCHITECTURE.md) — 顶部 §0 是给人类的 Quick Tour |
 | 调阈值常量 / 看错误码 / 看引擎路线图 | [`docs/REFERENCE.md`](REFERENCE.md) |
 | 看历史叙事（按轮次组织） | [`_archive/EVOLUTION.md`](../_archive/EVOLUTION.md) |

@@ -26,6 +26,8 @@ Thumbs.db
 build/
 dist/
 *.spec
+# r65 B2: version-info template generated each build from pyproject.toml::version
+version_info.txt
 
 # Large binary files (fonts shipped separately)
 resources/fonts/*.ttf

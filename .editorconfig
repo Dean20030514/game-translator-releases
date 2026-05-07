@@ -1,0 +1,32 @@
+# EditorConfig is awesome: https://EditorConfig.org
+# r65 O1 fix: multi-IDE consistency (VS Code / IntelliJ / Sublime / Vim).
+# Pre-r65 .gitattributes controlled git layer (line endings) but IDEs
+# could insert tabs / mixed indentation / wrong charset before commit.
+
+root = true
+
+[*]
+charset = utf-8
+end_of_line = lf
+insert_final_newline = true
+trim_trailing_whitespace = true
+indent_style = space
+indent_size = 4
+
+[*.{md,markdown}]
+# Markdown is whitespace-sensitive (trailing 2 spaces = hard line break;
+# nested list indents matter)
+trim_trailing_whitespace = false
+
+[*.{yml,yaml}]
+indent_size = 2
+
+[*.{toml,json}]
+indent_size = 2
+
+[*.bat]
+# Windows batch files use CRLF by convention
+end_of_line = crlf
+
+[Makefile]
+indent_style = tab

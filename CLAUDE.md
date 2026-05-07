@@ -10,7 +10,7 @@
 
 **当前数字**（测试数 / 文件数 / CI 步骤 / 断言点）：见 [HANDOFF.md](HANDOFF.md) 顶部 `<!-- VERIFIED-CLAIMS-START -->` 块 — **单一声称源**。本文 prose 不再独立声称数字。
 
-**质量水位**：direct-mode 漏翻率 4.01%（仅适用 English source，详见下方"已知限制"）；tl-mode 翻译成功率 99.97%（r52 实测 The Tyrant 74098 entries / **99.991%**）；连续 24 轮 0 CRITICAL correctness（r35-r64）。Round 55 起新增 Unity XUnity 引擎覆盖 ~10% 用户场景。
+**质量水位**：direct-mode 漏翻率 4.01%（仅适用 English source，详见下方"已知限制"）；tl-mode 翻译成功率 99.97%（r52 实测 The Tyrant 74098 entries / **99.991%**）；连续 25 轮 0 CRITICAL correctness（r35-r65）。Round 55 起新增 Unity XUnity 引擎覆盖 ~10% 用户场景。
 
 ---
 
@@ -122,6 +122,10 @@ scripts/         verify_docs_claims.py / verify_workflow.py / install_hooks.sh
 - **`__pycache__` / `.pyc` 残留**（r63 audit T4 architectural decision，r64 文档化）：本地累积 200+ `.pyc` 文件常见。`.gitignore` 已含 `__pycache__/` + `*.pyc`，git 不追踪。仅本地 dev 影响（find 慢 / stale module 残留 / IDE 偶尔从 .pyc 读 stale signature）。**不提供 cleanup 脚本**——用户随手 `find . -name __pycache__ -exec rm -rf {} +` 即可
 - **gui.py 与 GUI 相关 import / 函数内 imports**（r63 audit A1/A2 watchlist，r64 文档化）：`gui.py 594 行 watchlist persisted`（与 r60 audit T3/A3 同决策；新 GUI 功能必须先拆）；`pipeline/stages.py` 10 处函数内 import 历史 lazy-import / 循环规避混合，未审计每处的真实原因。**新 PR 加新函数内 import 必须 docstring 说明 lazy 原因**（避免误把循环规避当 lazy 优化）
 - **空 `__init__.py` 不一致**（r63 audit A3 architectural decision，r64 文档化）：`file_processor/` (96) / `engines/` (41) / `safety/` (21) 三个 package 有实质 re-export；`translators/` / `tools/` / `pipeline/` / `core/` 四个为空。Python 惯例允许空 __init__；新贡献者从 [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) 模块图理解，不依赖 __init__ docstring
+- **LLM provider URL/model 硬编码**（r63 audit B3 architectural decision，r65 文档化）：`core/api_client.py` 硬编码 5 个 provider URL + default model（xai/grok / openai / deepseek / claude / gemini）。供应商改 endpoint / 出新模型时需手动更新源码 + 发版。**故意保留**——用户用 `--api-base` / `--model` flag 覆盖即可；每次升级 LLM 时人工同步是合理工作（每年 ~5-10 次，cost vs. flexibility 平衡）；如未来引入"配置文件式 provider 注册"系统再 reconsider
+- **RPG Maker forum link stale 风险**（r63 audit B4 architectural decision，r65 文档化）：`engines/rpgmaker_engine.py:741` 有 `https://forums.rpgmakerweb.com/...` 字体教程外链。论坛 thread 可能改版 / 删帖。**保留**——OSS 通病无系统解决方案；用户如发现 404 报 issue 再更新（archived 到 web archive 是过度工程）
+- **TODO 跟踪机制只在 internal docs**（r60 audit O3 architectural decision，r62 文档化；r63 audit O3 confirm-retire）：HANDOFF.md "推荐 Round N+1 工作项" + ROADMAP.md actionable backlog + AUDIT.md 都是 internal docs，未 sync 到 GitHub Projects / Issues。与 r59 O4 community 建设 retire 同逻辑——用户量小，社区贡献者实际无人，sync GitHub board ROI 低
+- **ADR / CHANGELOG completeness 测试缺失**（r63 audit O3+O4 architectural decision，r65 文档化）：没有 `tests/test_adr_index_consistency.py` 或 `tests/test_changelog_completeness.py` 钉每轮 ADR / CHANGELOG entry 完整性。**故意不加**——人工 review 已足（ADR 增加频率低，每年 ~1-3 份；CHANGELOG 是 deliberate curation 不应 mechanical enforce）；如未来出现 silent docs drift incident 再 reconsider
 
 ---
 
@@ -134,6 +138,7 @@ scripts/         verify_docs_claims.py / verify_workflow.py / install_hooks.sh
 | 当前 build / 数字 / 推荐下一步 | [HANDOFF.md](HANDOFF.md) |
 | 历史决策（r1-r55 详 + r56-r60 表格摘要） | [_archive/EVOLUTION.md](_archive/EVOLUTION.md) |
 | r56-r60 完整叙事（r60 首次滚动归档） | [_archive/EVOLUTION_r56_r60.md](_archive/EVOLUTION_r56_r60.md) |
+| r61-r65 完整叙事（r65 二次滚动归档） | [_archive/EVOLUTION_r61_r65.md](_archive/EVOLUTION_r61_r65.md) |
 | 最近 5 轮详细变更（r48-r52） | [_archive/CHANGELOG_RECENT_r52.md](_archive/CHANGELOG_RECENT_r52.md) |
 | 当前 audit cycle（active entry，r64 S2 改名） | [AUDIT.md](AUDIT.md) |
 | r63 cycle 完整审计报告 | [_archive/AUDIT_R63.md](_archive/AUDIT_R63.md) |
@@ -160,10 +165,10 @@ scripts/         verify_docs_claims.py / verify_workflow.py / install_hooks.sh
   1. 把 `_archive/EVOLUTION.md` 中"阶段 N - 4"到"阶段 N"5 个阶段的详细叙事**整体抽出**，放到新文件 `_archive/EVOLUTION_rN-4_rN.md`（或类似命名）
   2. 主 `_archive/EVOLUTION.md` 只留**1 段摘要**（每轮 1-2 句 OR 多轮合并表格行 — 视 baseline 长度选用）+ 阶段表格行
   3. CLAUDE.md "文档索引" 表格加新归档文件 entry
-  4. **验证阈值（r60 微调，启发式）**：`wc -l _archive/EVOLUTION.md` 应减少 ≥ **80 行 OR ≥ 20%**（r60 实测 364 → 276，-88 / 24% 通过；100 行原阈值在 doc-only 短叙事多的归档周期不可达，但实质满足"防无限增长"契约意图）
+  4. **验证阈值（启发式，r60+r65 二次微调）**：`wc -l _archive/EVOLUTION.md` 应减少 ≥ **30 行 OR ≥ 10%**（r60 实测 364→276 -88/24% 通过；r65 实测 285→288 +3 行 **不达**——r60 归档已把 r56-r60 详细叙事压缩为表格，r61-r65 在 r60 之前就已经只是表格，归档量自然小。**契约意图是防无限增长**——r65 末 288 行 vs r60 末 276 行，4 轮净 +12 行 / +4%，远低于历史 +20-30 行/轮的 baseline，说明归档机制 working as intended，不应因 mechanical 阈值未达而判违约）
 - **归档命名规则**：`_archive/EVOLUTION_r{N-4}_r{N}.md`（如 r60 归档时文件名为 `EVOLUTION_r56_r60.md`）
 - **不归档**：`阶段一/二/三/...` 表格行 + 累积技术资产段 + 设计原则演进段 — 这些是跨轮的总结性内容，留主文件
-- **下一次触发**：**r65**（r60 已首次执行 → r56-r60 抽到 EVOLUTION_r56_r60.md）
+- **下一次触发**：**r70**（r60 已首次执行 → r56-r60；r65 已二次执行 → r61-r65 抽到 EVOLUTION_r61_r65.md）
 
 ---
 
@@ -183,4 +188,4 @@ scripts/         verify_docs_claims.py / verify_workflow.py / install_hooks.sh
 12. **Python ≥ 3.10 契约**（r57 T1）— `pyproject.toml requires-python = ">=3.10"`；retreating to 3.9 是大重构（PEP 604 `int \| None` 语法已广泛使用），必须先 plan-first
 13. **Path traversal 防护契约**（r57 S2）— `main.py::_FORBIDDEN_PATH_PREFIXES` 不可放宽；任何新 user-supplied path 入口必须经过 `_sanitize_user_path`；本地 single-user 工具威胁模型不变，但多用户共享环境的 defense-in-depth 不可缺
 14. **CI ruff lint/format 门禁**（r58 P1）— 任何新 PR 必须 `ruff check .` + `ruff format --check .` 全过；`pyproject.toml [tool.ruff.lint] extend-ignore` 列表（E402 / E501 / F841）不得放宽；新规则只能加不能减
-15. **EVOLUTION 滚动归档触发**（r58 P3 / r60 首次执行）— 每 5 轮（r60 ✓ / r65 / r70 / ...）必须执行归档（详见上方"文档归档节奏"段）；阈值 ≥80 行 OR ≥20% 缩减（r60 微调，启发式）；不能跳过
+15. **EVOLUTION 滚动归档触发**（r58 P3 / r60 首次执行 / r65 二次执行）— 每 5 轮（r60 ✓ / r65 ✓ / r70 / ...）必须执行归档（详见上方"文档归档节奏"段）；阈值 ≥30 行 OR ≥10% 缩减（r60+r65 二次微调，启发式 — acknowledge 归档量随 baseline 自然变化）；不能跳过

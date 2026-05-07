@@ -1,0 +1,23 @@
+# r65 O2 fix: explicit FUNDING.yml (disabled).
+#
+# r59 O4 retired "Community 建设" — sponsor 入口 ROI 低于维护成本（用户量小）.
+# r65 O2 makes that decision explicit at the GitHub-config layer:
+# the Sponsor button is not currently active for this project.
+#
+# Re-enable conditions: see CLAUDE.md "已知限制" §Community 建设 retire —
+# 用户量持续增长 + 多人协作开发需求出现时 reconsider.
+#
+# When the time comes, populate the keys below per
+# https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/displaying-a-sponsor-button-in-your-repository
+
+# github: []
+# patreon:
+# open_collective:
+# ko_fi:
+# tidelift:
+# community_bridge:
+# liberapay:
+# issuehunt:
+# otechie:
+# lfx_crowdfunding:
+# custom: []

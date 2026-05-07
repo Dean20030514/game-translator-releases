@@ -33,5 +33,13 @@ round's docs-sync commit.
 ## Most recent cycle (r63)
 
 See [`_archive/AUDIT_R63.md`](_archive/AUDIT_R63.md) for the full report.
-**Closure status**: r64 closing 11 findings (T1-T4 / S1-S4 / A1-A3);
-r65 will close remaining 12 (P1-P4 / B1-B4 / O1-O4).
+**Closure status**: ✅ r65 末全闭合（r64 11 + r65 12 = 23 findings）。
+r63 audit cycle backlog 清零。
+
+## Cycle history summary
+
+- **r57 cycle**: 23 findings → r57/r58/r59 闭合（详见 EVOLUTION 阶段十六-十八）
+- **r60 cycle**: 23 findings → r61/r62 闭合（详见 EVOLUTION 阶段二十-二一 / `_archive/EVOLUTION_r61_r65.md`）
+- **r63 cycle**: 23 findings → r64/r65 闭合 + 3 audit-tail surfaced regressions（详见 [`_archive/AUDIT_R63.md`](_archive/AUDIT_R63.md) + `_archive/EVOLUTION_r61_r65.md`）
+
+**累计 3 轮 6 维度审计 = 69 unique findings 全闭合**（r57: 23 + r60: 23 + r63: 23）。

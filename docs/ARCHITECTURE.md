@@ -85,6 +85,18 @@ python main.py --game-dir tests/tl_priority_mini/game --provider xai --dry-run
 3. 看 git blame — 每个 commit message 都尽量解释了 "why"
 4. 看 [`AUDIT.md`](../AUDIT.md)（永久入口；r64 S2 改名）— 当前 audit cycle；历史 cycle 归档在 [`_archive/AUDIT_R{N}.md`](../_archive/)
 
+### 0.7 关键架构决策快查（11 ADRs，r65 P3 加索引）
+
+详见 [`docs/adr/README.md`](adr/README.md) 完整索引。按主题分组：
+
+- **依赖与 Python**：[ADR 0001](adr/0001-zero-third-party-dependencies.md) 零第三方依赖 / [ADR 0006](adr/0006-python-310-floor.md) Python ≥ 3.10 BREAKING
+- **目标语言**：[ADR 0002](adr/0002-zh-only-target-language.md) zh 简体中文 only BREAKING
+- **Plugin 隔离**：[ADR 0003](adr/0003-subprocess-sandbox-only-plugin.md) subprocess sandbox-only BREAKING
+- **Engine 设计**：[ADR 0004](adr/0004-renpy-stays-on-dedicated-pipelines.md) RenPy 不走 generic_pipeline / [ADR 0005](adr/0005-safety-as-toplevel-package.md) `safety/` 顶层 package
+- **CI 门禁**：[ADR 0007](adr/0007-mypy-enforce-scope.md) mypy 6 文件 scope / [ADR 0009](adr/0009-ruff-ci-gate.md) ruff lint+format gate
+- **安全**：[ADR 0008](adr/0008-path-traversal-guard.md) `_FORBIDDEN_PATH_PREFIXES`
+- **流程**：[ADR 0010](adr/0010-evolution-rolling-archive.md) EVOLUTION 5 轮滚动归档 / [ADR 0011](adr/0011-shared-config-helper.md) `_resolve_args_from_config` shared helper
+
 ---
 
 ## 1. 模块调用关系

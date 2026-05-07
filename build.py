@@ -85,6 +85,77 @@ def clean_build_artifacts() -> int:
     return 0
 
 
+def _read_project_version() -> str:
+    """r65 B2 fix: read pyproject.toml::version for PyInstaller --version-file.
+
+    Single source of truth (matches main.py r64 S4 pattern). Falls back to
+    "0.0.0" if pyproject.toml is missing/unparseable.
+    """
+    import re
+
+    pyproject = PROJECT_ROOT / "pyproject.toml"
+    try:
+        text = pyproject.read_text(encoding="utf-8")
+    except OSError:
+        return "0.0.0"
+    m = re.search(r'^version\s*=\s*"([^"]+)"', text, re.MULTILINE)
+    return m.group(1) if m else "0.0.0"
+
+
+def _write_version_info(version: str) -> Path:
+    """r65 B2 fix: generate PyInstaller version-info template.
+
+    Pre-r65 the .exe had no Windows version metadata even after r62 v2.0.0
+    bump. PyInstaller's ``--version-file`` accepts a Windows VS_VERSION_INFO
+    template; we generate it from pyproject.toml::version on every build so
+    the .exe Properties → Details shows the real version.
+
+    Tuple format requires (major, minor, patch, build) — pad with 0 if
+    fewer parts.
+    """
+    parts = version.split(".")
+    while len(parts) < 4:
+        parts.append("0")
+    major, minor, patch, build = parts[:4]
+
+    template = f"""# UTF-8
+# r65 B2 generated; do NOT hand-edit. Regenerated each build from pyproject.toml::version.
+VSVersionInfo(
+  ffi=FixedFileInfo(
+    filevers=({major}, {minor}, {patch}, {build}),
+    prodvers=({major}, {minor}, {patch}, {build}),
+    mask=0x3f,
+    flags=0x0,
+    OS=0x40004,
+    fileType=0x1,
+    subtype=0x0,
+    date=(0, 0)
+  ),
+  kids=[
+    StringFileInfo(
+      [
+        StringTable(
+          u'040904B0',
+          [StringStruct(u'CompanyName', u'Multi-Engine Game Translator'),
+           StringStruct(u'FileDescription', u'Pure-Python multi-engine game translator (LLM-based zh-only)'),
+           StringStruct(u'FileVersion', u'{version}'),
+           StringStruct(u'InternalName', u'multi-engine-game-translator'),
+           StringStruct(u'LegalCopyright', u'MIT License'),
+           StringStruct(u'OriginalFilename', u'多引擎游戏汉化工具.exe'),
+           StringStruct(u'ProductName', u'Multi-Engine Game Translator'),
+           StringStruct(u'ProductVersion', u'{version}')]
+        )
+      ]
+    ),
+    VarFileInfo([VarStruct(u'Translation', [0x0409, 1200])])
+  ]
+)
+"""
+    out = PROJECT_ROOT / "version_info.txt"
+    out.write_text(template, encoding="utf-8")
+    return out
+
+
 def main(argv: list[str] | None = None) -> int:
     argv = sys.argv[1:] if argv is None else argv
 
@@ -158,6 +229,12 @@ def main(argv: list[str] | None = None) -> int:
     if presets_dir.exists():
         datas.append((str(presets_dir), "prompt_presets"))
 
+    # r65 B2 fix: generate version-info.txt from pyproject.toml::version
+    # so the .exe carries Windows version metadata (visible in
+    # Properties → Details after build).
+    project_version = _read_project_version()
+    version_info_path = _write_version_info(project_version)
+
     cmd = [
         sys.executable,
         "-m",
@@ -170,6 +247,9 @@ def main(argv: list[str] | None = None) -> int:
         "NONE",
         "--noconfirm",
         "--clean",
+        # r65 B2: embed Windows version metadata
+        "--version-file",
+        str(version_info_path),
     ]
 
     for imp in hidden_imports:

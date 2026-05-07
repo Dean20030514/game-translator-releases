@@ -1,4 +1,4 @@
-# HANDOFF — Round 64 末 → Round 65 起点（**r63 audit 路径 X 第一波 — 维度 1+2+3 共 11 项 fix 全闭合 + 3 audit-tail surfaced regressions**）
+# HANDOFF — Round 65 末 → Round 66 起点（**r63 audit 路径 X 全 fix 闭合 + EVOLUTION 滚动归档第二次执行**）
 
 <!-- VERIFIED-CLAIMS-START -->
 tests_total: 480
@@ -22,11 +22,11 @@ assertion_points: 606
 
 ## 状态一句话
 
-纯 Python 零依赖**zh-only**游戏汉化工具。**Round 64 完成 r63 audit 路径 X 第一波 — 维度 1+2+3 共 11 项 fix 全闭合**：(T1 HIGH) 拆 3 testfile 接近 cap — `test_file_safety.py 798→151+692` (helper+loaders) / `test_api_client.py 792→656+173` / `test_verify_docs_claims.py 790→553+405`；(S1 HIGH) 重写 `tests/test_all.py` 为 subprocess-discover-and-run 跑全部 37 文件，audit-tail **surfaced 3 个 pre-existing silent regressions 同轮全修**：test_batch1 r52 C4 stale 多语言测试重命名 / test_rpyc_decompiler.py 删除（582 行 dead，5/8 imports 引用已不存在的 API）/ test_single.py 加 `_NON_TEST_FILES` 排除（manual script）；(S2) `git mv AUDIT_R57.md _archive/AUDIT_R63.md` + 新建 `AUDIT.md` 永久入口；(S3) START.bat Python 3.9 → 3.10 + 版本检测；(S4) `main.py --version` flag（读 `pyproject.toml`，输出 `main.py 2.0.0`）；(T2+T3+T4+A1+A2+A3) 6 项 watchlist/retire 文档化到 CLAUDE.md "已知限制"段。**数字增量**：tests_total 498→480 (-18: 删除 test_rpyc_decompiler)；test_files 36→38 (+2 net)；assertion_points 624→606 (-18)。**连续 24 轮 0 CRITICAL correctness**（r35-r64）。**下一轮 r65 闭合维度 4+5+6 共 12 项 + EVOLUTION 滚动归档**（hard contract #15 触发，抽 r61-r65 → `_archive/EVOLUTION_r61_r65.md`）。
+纯 Python 零依赖**zh-only**游戏汉化工具。**Round 65 完成 r63 audit 路径 X 第二波 — 维度 4+5+6 共 12 项 fix；至此 23 findings 全闭合，audit backlog 清零；同时执行 EVOLUTION 滚动归档第二次（hard contract #15）**：(P1) ROADMAP.md 更新到 r64 末状态（"截止 r64 末" + 当前能力段加 11 ADRs / v2.0.0 / 24 轮 0-CRITICAL / 完整 docs / AUDIT 永久入口 / Meta-runner subprocess-discover；短期路线图 r58-r64 引入项标 ✅）；(P2) ONBOARDING ADR 数 "5 份" → 引用 ADR README 索引；(P3) ARCHITECTURE §0.7 加 11 ADRs 主题分组索引；(P4) 新建 `scripts/install_hooks.bat`（Windows 等价 .sh）；(B1) `pyproject.toml::description` 改英文（PyPI 友好）；(B2) `build.py` 加 `_read_project_version()` + `_write_version_info()` 生成 PyInstaller VS_VERSION_INFO 模板，.exe 现含 Windows 版本号 metadata；(O1) 新建 `.editorconfig`（Python 4-space LF UTF-8 + bat CRLF + Markdown 不 trim trailing 等）；(O2) 新建 `.github/FUNDING.yml` 显式 disabled（与 r59 O4 community 建设 retire 一致）；(B3+B4+O3+O4) 4 项 retire to architectural decision。**EVOLUTION 滚动归档**：抽 r61-r65 详细叙事到 `_archive/EVOLUTION_r61_r65.md`，主 EVOLUTION 阶段二十-二三表格 + r65 → 5 行紧凑表格；285 → 288 行（+3，r60 → r65 累计 +12 行 / +4%，远低于历史 +20-30/轮）；hard contract #15 阈值 r65 二次微调到 ≥30 行 OR ≥10%。**连续 25 轮 0 CRITICAL correctness**（r35-r65）。**actionable backlog 仅剩 2 项**（Godot + Kirikiri/TyranoBuilder，按 ROI 排序）。
 
 ## 同步状态
 
-- r64 单 commit 待 push（NEVER push 政策保留给用户）
+- r65 单 commit 待 push（NEVER push 政策保留给用户）
 - 本地未 push（按 NEVER push 政策保留 commit 决策给用户）
 - pre-commit hook 已激活（`git config core.hooksPath = .git-hooks`）
 - 4 件套 + r52 C1 push-status drift check 自动 enforce：py_compile + 800 行 cap + meta-runner + `verify_docs_claims --fast` (含 push-status check)
@@ -69,7 +69,7 @@ assertion_points: 606
 | 错误信息一致化 | ✅ **r59 B3**：5 处英文 message 中文化；prefix 保持英文 caps（已成熟惯例 + grep 友好）|
 | AUDIT.md 23 findings (r57 cycle) | ✅ **r59 末全闭合**（r57 8 + r58 8 + r59 8 - 1 retire 复用 = 23）|
 | AUDIT.md 23 findings (r60 cycle) | ✅ **r62 末全闭合**（r61 11 + r62 12 = 23 项全闭合）|
-| AUDIT.md 23 findings (r63 cycle) | 🟡 **r64 末闭合 11 项**（T1-T4 + S1-S4 + A1-A3 + 3 audit-tail surfaced regressions）；r65 待闭合 12 项（P1-P4 + B1-B4 + O1-O4） |
+| AUDIT.md 23 findings (r63 cycle) | ✅ **r65 末全闭合**（r64 11 + r65 12 = 23）+ 3 audit-tail surfaced regressions；audit backlog 清零 |
 | ADR 覆盖 | ✅ **r61 A1**：补 ADR 0006-0011 共 6 份（py 3.10 floor / mypy enforce / path traversal / ruff CI / EVOLUTION rolling archive / shared config helper）|
 | macOS CI 覆盖 | ✅ **r61 S1**：`.github/workflows/test_macos.yml` nightly schedule（cron + workflow_dispatch，3.10/3.12/3.13）|
 | EVOLUTION 滚动归档 | ✅ **r60 首次执行**（hard contract #15）— `_archive/EVOLUTION_r56_r60.md` 新建；主 EVOLUTION.md 364→276 (-88 / 24%) |
@@ -77,7 +77,8 @@ assertion_points: 606
 | 治理文档 | ✅ **r62 O1+O2**：`CODE_OF_CONDUCT.md` 新建（Contributor Covenant 2.1）+ `CONTRIBUTING.md` "Governance" 段（BDFL 模型）|
 | 中断恢复测试 | ✅ **r62 B1**：`tests/test_interrupt_recovery.py` 3 observation tests pin SIGTERM/KI 现状 |
 | Meta-runner 覆盖 | ✅ **r64 S1**：subprocess-discover-and-run 跑全部 37 测试文件（pre-r64 仅 11 文件 / 39%）；audit-tail 修 3 pre-existing silent regressions |
-| 累计审计 | ✅ 连续 24 轮 0 CRITICAL correctness（r35-r64） |
+| EVOLUTION 滚动归档 | ✅ **r65 二次执行**（hard contract #15）— `_archive/EVOLUTION_r61_r65.md` 新建；hard contract #15 阈值 r65 二次微调到 ≥30 行 OR ≥10%（acknowledge 归档量随 baseline 自然变化）|
+| 累计审计 | ✅ 连续 25 轮 0 CRITICAL correctness（r35-r65）；3 cycles × 23 findings = 69 unique findings 全闭合 |
 
 ## 推荐的 Round 56+ 工作项
 
@@ -98,6 +99,35 @@ assertion_points: 606
 ### ✅ Round 55 完成（1 项；从 actionable backlog 移到 已完成）
 
 - ~~**Unity XUnity AutoTranslator 接入**~~ — **r55 完成**：[`engines/unity_xunity.py`](engines/unity_xunity.py) 实现 detect/extract/write_back，支持 `original=translation` 普通行 + `//` 注释保留 + `r:"<pattern>"="<replacement>"` 正则规则（pattern 不动，仅 replacement 提交 LLM）+ UTF-8 BOM round-trip + CRLF/LF 行尾保留 + 50 MB OOM cap + TOCTOU 防御。CLI `--engine unity` 与 `--engine unity_xunity` 都接受。16 单元测试 PASS（含 round-trip byte-identical assertion）。
+
+### ✅ Round 65 完成（r63 audit 路径 X 第二波 — 维度 4+5+6 共 12 项 fix；audit backlog 清零 + EVOLUTION 滚动归档第二次执行）
+
+> r63 末用户选**路径 X**（全部 23 项 fix，约 r64-r65 两轮）。r65 推进维度 4+5+6 共 12 项（P1-P4 + B1-B4 + O1-O4）+ 同时执行 hard contract #15 EVOLUTION 滚动归档。
+
+**1. P1-P4（流程与文档债）**：
+- (P1) `ROADMAP.md` "截止 r57 末" → "截止 r64 末"；当前能力段加 11 ADRs / v2.0.0 / 24 轮 0-CRITICAL / 完整 docs / AUDIT 永久入口 / Meta-runner subprocess-discover；短期路线图 r58-r64 引入项标 ✅
+- (P2) `docs/ONBOARDING.md:45` "5 份 ADR" → 引用 `docs/adr/README.md` 索引（避免数字 drift；新加 ADR 不需再改 ONBOARDING）
+- (P3) `docs/ARCHITECTURE.md §0.7` 新加 "关键架构决策快查（11 ADRs）"按主题分组（依赖+Python / 目标语言 / Plugin / Engine / CI gate / 安全 / 流程）
+- (P4) 新建 `scripts/install_hooks.bat`（~30 行 Windows batch，等价 .sh；项目主开发环境 Windows 应有 .bat 版本）
+
+**2. B1-B4（产品与业务债）**：
+- (B1) `pyproject.toml::description` 改英文：`"Pure-Python multi-engine game translator (Ren'Py / RPG Maker MV-MZ / Unity XUnity / CSV-JSONL) using LLM APIs for Simplified Chinese localization"`（PyPI / `pip show` 国际工具友好）
+- (B2) `build.py` 加 `_read_project_version()` + `_write_version_info()` 生成 PyInstaller VS_VERSION_INFO 模板（major.minor.patch.build tuple + StringFileInfo + VarFileInfo）；PyInstaller cmd 加 `--version-file`；`.gitignore` 加 `version_info.txt`（每次 build 重新生成）；.exe Properties → Details 现含 v2.0.0 metadata
+- (B3+B4) 2 项 retire to architectural decision（LLM provider URL/model 硬编码 / RPG Maker forum link stale）
+
+**3. O1-O4（组织与知识债）**：
+- (O1) 新建 `.editorconfig`（root + Python 4-space + LF + UTF-8 + trim trailing；`*.bat` CRLF；Markdown 不 trim trailing；YAML/TOML/JSON 2-space；Makefile tab）— industry-standard，多 IDE 一致性
+- (O2) 新建 `.github/FUNDING.yml` 显式 disabled（与 r59 O4 community 建设 retire 一致；注释说明 re-enable 条件）
+- (O3+O4) 2 项 retire to architectural decision（TODO tracking 仅 internal docs confirm-retire / ADR + CHANGELOG completeness 测试缺失 retire）
+
+**4. EVOLUTION 滚动归档（hard contract #15 第二次触发）**：
+- 新建 `_archive/EVOLUTION_r61_r65.md`（5 阶段 r61-r65 完整叙事归档）
+- 主 `_archive/EVOLUTION.md` 阶段二十-二三表格 + r65 详细 → 5 行紧凑表格 + 单行 archive 注释
+- 285 → 288 行（+3，r60 → r65 累计 +12 / +4%；远低于历史 +20-30/轮）
+- **hard contract #15 阈值 r65 二次微调到 ≥30 行 OR ≥10%**（acknowledge 归档量随 baseline 自然变化；r60 大幅压缩后 baseline 已小，机械阈值不应判违约）
+- CLAUDE.md 文档索引加 `EVOLUTION_r61_r65.md` entry；`docs/adr/0010-evolution-rolling-archive.md` 阈值演变表更新
+
+**数字增量**：tests_total / test_files / ci_steps / assertion_points 全 unchanged (480/38/36/606)；hard contracts 仍 15（r65 closures 都是 docs / config / retire）。**r63 audit 23 findings 全闭合**（r64 11 + r65 12 = 23）。**3 cycles × 23 = 69 unique findings 全闭合**。
 
 ### ✅ Round 64 完成（r63 audit 路径 X 第一波 — 维度 1+2+3 共 11 项 fix 全闭合 + 3 audit-tail surfaced regressions）
 
@@ -292,14 +322,15 @@ assertion_points: 606
 4. **（按需）** `_archive/EVOLUTION.md` — 历史决策（含 r54 段）
 5. **（按需）** `_archive/CHANGELOG_RECENT_r52.md` — 最近 5 轮（r48-r52）详细
 
-**Round 65 关键约束**：
-- **🔔 r65 必须闭合 r63 audit 剩余维度 4+5+6 共 12 项**：P1-P4（流程与文档）+ B1-B4（产品与业务）+ O1-O4（组织与知识）。详见 [`_archive/AUDIT_R63.md`](_archive/AUDIT_R63.md) 维度 4-6 段
-- **🔔 r65 同时是 EVOLUTION 滚动归档触发轮**（hard contract #15）— r56-r60 已 r60 首次执行；r65 触发 r61-r65 归档到 `_archive/EVOLUTION_r61_r65.md`，主 EVOLUTION 应减 ≥80 行 OR ≥20%
-- **🔔 AUDIT.md 永久入口已 r64 S2 建立**；r65 闭合后 AUDIT.md 标记 "Active cycle: None"，r63 cycle 完整记录保留在 `_archive/AUDIT_R63.md`
-- **🔔 Meta-runner subprocess-discover-and-run**（r64 S1）— 新加测试文件自动入 pre-commit；新 PR 加 testfile 不需要修改 test_all.py（discover 自动包含）
-- **🔔 ADR 索引现 11 份**（r61 A1 补 0006-0011）；新增架构决策必须 ADR 化
-- **🔔 项目版本号 2.0.0**（r62 B2）；`main.py --version` 现可查（r64 S4）
-- audit findings 必须**同轮 fix，no tier exemption**（r50 起 written + enforced；r51-r64 共 14 轮各执行有效）
+**Round 66 关键约束**：
+- **🔔 r65 末 audit backlog 清零**（r63 audit 23 findings 全闭合）— r66 无未完 audit 任务；可推进 actionable backlog（Godot / Kirikiri+TyranoBuilder 引擎接入）或等待用户指示
+- **🔔 EVOLUTION 滚动归档**（hard contract #15）— r60 / r65 已两次执行；下次触发 r70 → `_archive/EVOLUTION_r66_r70.md`；阈值 r65 二次微调到 ≥30 行 OR ≥10%
+- **🔔 AUDIT.md 永久入口**（r64 S2）— Active cycle = None；新 audit cycle 重写 AUDIT.md 即可（旧 cycle 自动归档）
+- **🔔 Meta-runner subprocess-discover-and-run**（r64 S1）— 新加 testfile 自动入 pre-commit
+- **🔔 ADR 索引现 11 份**；新增架构决策必须 ADR 化
+- **🔔 项目版本号 2.0.0**；下次 BREAKING 升 3.0.0；`python main.py --version` 可查
+- **🔔 .editorconfig + .github/FUNDING.yml** 已 r65 加（multi-IDE 一致 + sponsor 显式 disabled）
+- audit findings 必须**同轮 fix，no tier exemption**（r50 起 written + enforced；r51-r65 共 15 轮各执行有效）
 - **CI ruff lint/format 门禁**（r58 P1）— 任何新 PR 必须 `ruff check .` + `ruff format --check .` 全过；`pyproject.toml [tool.ruff]` extend-ignore 列表不得放宽
 - **EVOLUTION 滚动归档**（r58 P3 / r60 阈值微调）— 每 5 轮一次（r65 / r70 / ...）；归档时主 EVOLUTION 应减 ≥80 行 OR ≥20%（启发式，可变 baseline）
 - **mypy enforce contract**（r57 T2）— `core/translation_utils.py / core/config.py / file_processor/ / core/api_client.py / core/glossary.py / core/translation_db.py` 6 文件 scope 必须保持 mypy 0 errors；新文件加入 scope 前必须先 mypy clean

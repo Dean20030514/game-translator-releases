@@ -2,26 +2,31 @@
 
 > **公开版**（用户/贡献者视角）。Internal-style 工程 backlog 见 [`HANDOFF.md`](HANDOFF.md)。
 >
-> 本文件 r58 P2 引入。**截止 r57 末**项目已闭合 4 大债务维度（5 死 import、file_safety 移到 safety/、Python 3.10、mypy enforce、path traversal、escape fuzz、complex fixture、hard contract 13 → 16）。
+> 本文件 r58 P2 引入。**截止 r64 末**项目历经 3 轮 6 维度深度审计（r57 / r60 / r63 cycles），分别闭合 23/23/11 项 findings；累计 ADR 11 份 + hard contracts 15 条 + 24 轮连续 0 CRITICAL streak。
 
-## 当前能力（r57 末）
+## 当前能力（r64 末）
 
-- ✅ Ren'Py / RPG Maker MV-MZ / CSV-JSONL 三引擎成熟
-- ✅ Unity XUnity AutoTranslator 文件支持（r55）
-- ✅ 五大 LLM provider + custom plugin (subprocess sandbox)
-- ✅ tl-mode 翻译成功率 99.991%（r52 实测 The Tyrant 74098 entries）
-- ✅ direct-mode 漏翻率 4.01%（仅适用英文源）
-- ✅ 17 轮连续 0 CRITICAL correctness streak（r35-r57）
+- ✅ Ren'Py / RPG Maker MV-MZ / CSV-JSONL / Unity XUnity 四引擎成熟（Unity r55 引入）
+- ✅ 五大 LLM provider + custom plugin (subprocess sandbox-only，r52 C3 BREAKING)
+- ✅ tl-mode 翻译成功率 99.991%（r52 实测 The Tyrant 74098 entries / 0.0013% checker drop）
+- ✅ direct-mode 漏翻率 4.01%（仅适用英文源；r53 W4 文档化）
+- ✅ **24 轮连续 0 CRITICAL correctness streak（r35-r64）**
 - ✅ 26 sites TOCTOU MITIGATED + pickle 红队 verified safe + path traversal guard
+- ✅ **CI 三 OS matrix**（ubuntu / windows + macos nightly schedule，r61 S1）+ ruff lint+format gate（r58 P1）+ mypy enforce 6 文件 scope（r57 T2）+ release.yml 自动化（r59 B1，3 OS PyInstaller → SHA256SUMS → draft Release）
+- ✅ **完整 docs 体系**：CLAUDE.md / HANDOFF.md / docs/ARCHITECTURE.md / docs/REFERENCE.md / docs/ONBOARDING.md / docs/adr/ (11 ADRs) / CODE_OF_CONDUCT.md / CONTRIBUTING.md "Governance" 段
+- ✅ **AUDIT 永久入口**（r64 S2）：[`AUDIT.md`](AUDIT.md) active cycle + `_archive/AUDIT_R{N}.md` 历史归档
+- ✅ **项目版本**：v2.0.0（r62 B2 升级反映 r52 C3/C4 + r57 T1 累积 BREAKING）；`python main.py --version` 可查（r64 S4）
 
 ## 短期路线图（按 ROI 排序）
 
 | 优先级 | 项 | 状态 | 备注 |
 |--------|----|------|------|
-| 🟢 中 ROI | **Godot 引擎接入** | 候选 r59+ | `.tscn` / `.gd` / `.tres` 文本格式；纯标准库可行；~3% 用户面 |
-| 🟢 中 ROI | **Kirikiri 2/Z + TyranoBuilder** | 候选 r59+ | `.ks` 文本可正则；~5% + ~3% 用户面 |
-| 🟡 流程 | **CI ruff lint** | r58 P1 引入 | 升级代码风格门禁 |
-| 🟡 流程 | **GitHub Actions tag-trigger release** | 候选 r59+ | 当前 release 是手动 PyInstaller；见 [`RELEASE.md`](RELEASE.md) §自动化候选 |
+| 🟢 中 ROI | **Godot 引擎接入** | 候选 r66+ | `.tscn` / `.gd` / `.tres` 文本格式；纯标准库可行；~3% 用户面 |
+| 🟢 中 ROI | **Kirikiri 2/Z + TyranoBuilder** | 候选 r66+ | `.ks` 文本可正则；~5% + ~3% 用户面 |
+| 🟡 流程 | **CI ruff lint+format** | ✅ r58 P1 引入 | 已 enforce |
+| 🟡 流程 | **release.yml tag-trigger** | ✅ r59 B1 引入 | v* tag → 3 OS matrix → draft Release |
+| 🟡 流程 | **macOS nightly CI** | ✅ r61 S1 引入 | cron + workflow_dispatch |
+| 🟡 流程 | **Meta-runner subprocess discover** | ✅ r64 S1 引入 | 全部 37 测试文件 pre-commit 全跑 |
 
 ## 中期方向（架构 / 体验）
 
