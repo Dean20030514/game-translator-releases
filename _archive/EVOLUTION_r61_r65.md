@@ -2,6 +2,8 @@
 
 > r65 滚动归档（hard contract #15 第二次触发）抽出本文件。主 [`EVOLUTION.md`](EVOLUTION.md) 中阶段二十-二四的详细叙事整体迁移于此；主文件仅留 1 行 summary + 表格行，避免单调增长。
 >
+> **r66 retire 注解**：本文叙事中提到的 `docs/adr/` 路径 / `[ADR NNNN]` 链接 / `AUDIT_R57.md` / `AUDIT_R63.md` / `AUDIT.md` 在 r66 已**全部删除**（用户决策）。叙事保留是为历史完整；当前架构契约请直接看 [`CLAUDE.md`](../CLAUDE.md) "维护规则"段 hard contracts 列表。
+>
 > 本文件 covers：r60 audit 路径 X 全闭合（r61-r62） + r63 第三次审计（r63） + r63 audit 路径 X 全闭合（r64-r65）+ r65 第二次 EVOLUTION 滚动归档触发。
 
 ---

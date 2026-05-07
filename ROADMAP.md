@@ -2,7 +2,7 @@
 
 > **公开版**（用户/贡献者视角）。Internal-style 工程 backlog 见 [`HANDOFF.md`](HANDOFF.md)。
 >
-> 本文件 r58 P2 引入。**截止 r64 末**项目历经 3 轮 6 维度深度审计（r57 / r60 / r63 cycles），分别闭合 23/23/11 项 findings；累计 ADR 11 份 + hard contracts 15 条 + 24 轮连续 0 CRITICAL streak。
+> 本文件 r58 P2 引入。**截止 r66 末**项目历经 3 轮 6 维度深度审计（r57 / r60 / r63 cycles，共 69 unique findings 全闭合）+ r66 用户决策 retire ADR + AUDIT framework；hard contracts 15 条 + 25+ 轮连续 0 CRITICAL streak。
 
 ## 当前能力（r64 末）
 
@@ -13,7 +13,7 @@
 - ✅ **24 轮连续 0 CRITICAL correctness streak（r35-r64）**
 - ✅ 26 sites TOCTOU MITIGATED + pickle 红队 verified safe + path traversal guard
 - ✅ **CI 三 OS matrix**（ubuntu / windows + macos nightly schedule，r61 S1）+ ruff lint+format gate（r58 P1）+ mypy enforce 6 文件 scope（r57 T2）+ release.yml 自动化（r59 B1，3 OS PyInstaller → SHA256SUMS → draft Release）
-- ✅ **完整 docs 体系**：CLAUDE.md / HANDOFF.md / docs/ARCHITECTURE.md / docs/REFERENCE.md / docs/ONBOARDING.md / docs/adr/ (11 ADRs) / CODE_OF_CONDUCT.md / CONTRIBUTING.md "Governance" 段
+- ✅ **完整 docs 体系**：CLAUDE.md / HANDOFF.md / docs/ARCHITECTURE.md / docs/REFERENCE.md / docs/ONBOARDING.md / CODE_OF_CONDUCT.md / CONTRIBUTING.md "Governance" 段（r66 retire ADR framework — 架构决策由 CLAUDE.md hard contracts 列表 + EVOLUTION 阶段叙事 完整记录）
 - ✅ **AUDIT 永久入口**（r64 S2）：[`AUDIT.md`](AUDIT.md) active cycle + `_archive/AUDIT_R{N}.md` 历史归档
 - ✅ **项目版本**：v2.0.0（r62 B2 升级反映 r52 C3/C4 + r57 T1 累积 BREAKING）；`python main.py --version` 可查（r64 S4）
 
@@ -32,7 +32,6 @@
 
 - **GUI/CLI 配置抽取**：r58 A1 引入 `_resolve_args_from_config` helper；持续观察是否需要 GUI 直接 import（当前 GUI 走 subprocess.Popen 间接调用 main.py）
 - **错误信息一致性**（r57 audit B3，LOW）：用户面 prefix 中英混用；统一为中文需扫一遍源码
-- **架构决策记录 (ADR)**：r58 P2 引入 `docs/adr/` 框架；后续每个架构决策（如 r52 C4 retire / r54 backlog 重新评估 / r56 file_safety 移位）写一个 ADR
 
 ## 长期愿景（用户场景驱动，不主动推进）
 
@@ -59,5 +58,5 @@
 ## 反馈与贡献
 
 - **Issue / 功能请求**：[GitHub Issues](https://github.com/Dean20030514/Multi-Engine-Game-Translator/issues)（请使用 `.github/ISSUE_TEMPLATE/` 模板）
-- **PR**：见 [`CONTRIBUTING.md`](CONTRIBUTING.md) + 在 `docs/adr/` 加新架构决策
+- **PR**：见 [`CONTRIBUTING.md`](CONTRIBUTING.md)（架构决策记录到 CLAUDE.md hard contracts 列表 + EVOLUTION 阶段叙事；r66 起不再用 ADR 文件）
 - **安全漏洞**：见 [`SECURITY.md`](SECURITY.md)

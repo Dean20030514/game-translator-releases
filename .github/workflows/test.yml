@@ -312,7 +312,7 @@ jobs:
           # Remaining `# type: ignore[union-attr]` pragmas in core/api_plugin.py
           # mark Optional[Popen[str]] call sites where runtime control flow
           # guarantees non-None but mypy cannot prove it statically — see
-          # AUDIT.md T2 (r57 cycle, archived to _archive/AUDIT_R59.md) for rationale.
+          # See r57 audit T2 closure (EVOLUTION 阶段十六 / EVOLUTION_r56_r60.md) for rationale.
           mypy --ignore-missing-imports core/translation_utils.py core/config.py file_processor/ core/api_client.py core/glossary.py core/translation_db.py
           # Round 58 P1: separate invocation for engines/ + safety/ with --follow-imports=silent
           # so transitive translators/ imports don't fail this gate. translators/ remains

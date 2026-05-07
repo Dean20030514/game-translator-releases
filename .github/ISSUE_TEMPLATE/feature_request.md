@@ -26,7 +26,7 @@ Existing workarounds? Why aren't they enough?
 ## 是否触及零依赖契约 / Touches zero-deps contract?
 
 - [ ] **不触及**（仅用 Python 标准库）/ No (stdlib-only)
-- [ ] **触及**（需要新第三方依赖）/ Yes (new third-party dep) — 必须先 plan-first 撤销 [ADR 0001](../../docs/adr/0001-zero-third-party-dependencies.md)
+- [ ] **触及**（需要新第三方依赖）/ Yes (new third-party dep) — 必须先 plan-first 撤销零依赖契约（CLAUDE.md "项目身份"段 + 第 9 条 hard contract）
 
 ## 是否触及已有 hard contract / Touches existing hard contracts?
 
@@ -37,8 +37,8 @@ Existing workarounds? Why aren't they enough?
 - [ ] 触及 Unity XUnity 解析契约（partition / 注释 round-trip / regex pattern preservation）
 - [ ] 触及 Pickle 白名单（需先跑红队 audit）
 - [ ] 触及 retry 并发 / ID drift detection layer-6（r53 W1 / W3）
-- [ ] 触及目标语言 zh-only contract（[ADR 0002](../../docs/adr/0002-zh-only-target-language.md)）
-- [ ] 触及 plugin subprocess sandbox 契约（[ADR 0003](../../docs/adr/0003-subprocess-sandbox-only-plugin.md)）
+- [ ] 触及目标语言 zh-only contract（r52 C4 BREAKING；详见 CLAUDE.md "项目身份"段）
+- [ ] 触及 plugin subprocess sandbox 契约（r52 C3 BREAKING；详见 CLAUDE.md "项目身份"段）
 - [ ] **以上都不触及** / None of the above
 
 ## 验证策略 / Verification

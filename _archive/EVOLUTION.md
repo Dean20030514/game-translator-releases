@@ -6,6 +6,8 @@
 > - **r1-r45 总览表**：见 [`_archive/CHANGELOG_FULL.md`](CHANGELOG_FULL.md)
 > - **r12-r19 引擎扩展方案历史快照**：见 [`_archive/EXPANSION_PLAN_FULL.md`](EXPANSION_PLAN_FULL.md)
 > - **当前状态**：见根目录 [`HANDOFF.md`](../HANDOFF.md) 顶部 `VERIFIED-CLAIMS` 块
+>
+> **r66 retire 注解**：本文叙事中提到的 `docs/adr/` 路径 / `[ADR NNNN]` 链接 / `AUDIT.md` / `_archive/AUDIT_R63.md` 在 r66 已**全部删除**（用户决策）。叙事保留是为历史完整；当前架构契约请直接看 [`CLAUDE.md`](../CLAUDE.md) "维护规则"段 hard contracts 列表。
 
 ---
 
@@ -232,19 +234,20 @@
 | 59 | 维度 5+6（B1-B4 + O1-O4）闭合 + AUDIT_R57.md 收尾：release 自动化（3 OS matrix → SHA256SUMS → draft Release）+ 中英双段免责声明 + `docs/ARCHITECTURE.md §0 Quick Tour` + `docs/ONBOARDING.md` 新建；纯文档+流程+微调轮 |
 | 60 | EVOLUTION 滚动归档首次执行（hard contract #15）；重做 6 维度审计收集 23 unique new findings（1 HIGH A1 ADR 缺漏 + 11 MEDIUM + 11 LOW）重写 [`AUDIT_R57.md`](../AUDIT_R57.md)；fix 由 r61+ 执行 |
 
-## 阶段二十-二四（r61-r65）— r60+r63 audit 推进 + 21st-25th 0-CRITICAL Streak
+## 阶段二十-二五（r61-r66）— r60+r63 audit 推进 + ADR/AUDIT framework retire + 21st-26th 0-CRITICAL Streak
 
-> **r65 滚动归档触发**（hard contract #15 第二次执行）：5 阶段完整叙事抽到 [`_archive/EVOLUTION_r61_r65.md`](EVOLUTION_r61_r65.md)，本段仅留摘要表格。
+> **r65 滚动归档触发**（hard contract #15 第二次执行）：r61-r65 5 阶段完整叙事抽到 [`_archive/EVOLUTION_r61_r65.md`](EVOLUTION_r61_r65.md)。
 
 | 轮 | 主题 |
 |----|------|
-| 61 | r60 audit 路径 X 第一波闭合 11 项（维度 1+2+3）：A1 HIGH 补 ADR 0006-0011 / T1 tempfile fix / S1 macOS nightly / S2 Plugin 协议稳定 / S3+S4+A2 retire；hard contracts 仍 15 |
-| 62 | r60 audit 路径 X 第二波闭合 12 项（维度 4+5+6）+ AUDIT 23 findings 全清零：P1 HANDOFF -69 行 / P2 README 致谢 / B1 interrupt 测试 / B2 v1.0→2.0 / O1 CODE_OF_CONDUCT.md / O2 Governance + 6 项 retire；hard contracts 仍 15 |
-| 63 | **第三次 6 维度深度审计**：r57 cycle 23 + r60 cycle 23 已闭合 = 46 项；r63 不重复。**收集 23 unique new findings**（2 HIGH + 9 MEDIUM + 12 LOW）。2 HIGH imminent: T1 3 testfile cap / S1 pre-commit 39% 覆盖。纯 audit 轮，fix 由 r64+ 执行 |
-| 64 | r63 audit 路径 X 第一波闭合 11 项（维度 1+2+3）+ **3 audit-tail surfaced regressions 同轮修**：T1 拆 3 testfile + S1 重写 meta-runner 为 subprocess-discover + 删除 test_rpyc_decompiler.py 死测试 + test_batch1 stale rename + test_single 排除 / S2 AUDIT.md 永久入口 / S3 START.bat fix / S4 --version flag / 6 项 watchlist；tests_total 498→480 |
-| 65 | r63 audit 路径 X 第二波闭合 12 项（维度 4+5+6）+ AUDIT 23 findings 全清零 + **EVOLUTION 滚动归档第二次执行**：P1 ROADMAP r64 末同步 / P2 ONBOARDING ADR 索引化 / P3 ARCHITECTURE 11 ADRs 索引段 / P4 install_hooks.bat / B1 description 英文 / B2 build.py version_info / O1 .editorconfig / O2 FUNDING.yml disabled + 4 项 retire；hard contract #15 阈值 r65 二次微调（≥10% OR ≥30 行 — acknowledge 归档量随 baseline 自然变化）|
+| 61 | r60 audit 路径 X 第一波闭合 11 项：补 6 份 ADR 0006-0011（r66 retire 删除）/ tempfile fix / macOS nightly / Plugin 协议稳定 / 3 项 retire |
+| 62 | r60 audit 路径 X 第二波闭合 12 项 + AUDIT 23 findings 全清零：HANDOFF -69 行 / README 致谢 / interrupt 测试 / v1.0→2.0 / CODE_OF_CONDUCT / Governance + 6 项 retire |
+| 63 | **第三次 6 维度深度审计** — 23 unique new findings（2H+9M+12L）；2 HIGH imminent: testfile cap / pre-commit 39% 覆盖 |
+| 64 | r63 audit 路径 X 第一波闭合 11 项 + 3 audit-tail surfaced regressions 同轮修：拆 3 testfile / 重写 meta-runner subprocess-discover / 删除 test_rpyc_decompiler 死测试 / `AUDIT_R57.md` 改 `AUDIT.md` 永久入口（r66 retire 删除）/ START.bat fix / --version flag |
+| 65 | r63 audit 路径 X 第二波闭合 12 项 + AUDIT 23 findings 全清零 + EVOLUTION 滚动归档第二次执行：ROADMAP / ONBOARDING / ARCHITECTURE 11 ADRs 索引段（r66 retire 删除）/ install_hooks.bat / description 英文 / build.py version_info / .editorconfig / FUNDING.yml + 4 项 retire |
+| 66 | **🚫 用户决策 retire ADR + AUDIT framework**：删除 `AUDIT.md` 永久入口 + `_archive/AUDIT_R63.md` r63 cycle 容器（150+ 行）+ `docs/adr/` 整个目录（12 文件 / 11 ADRs ~3500 行）；19 文件 refs 同步（CLAUDE.md / .cursorrules / HANDOFF / README / ROADMAP / RELEASE / CONTRIBUTING / docs/* / 2 workflows / 2 templates / dependabot / pyproject / START.bat 等）；CLAUDE.md "已知限制"段加 2 条 explicit retire 条目（**未来 audit 不要 propose 重新引入**）。理由：架构契约已在 CLAUDE.md hard contracts 列表 + EVOLUTION 阶段叙事完整记录；ADR 文件冗余形式主义；6 维度审计 demonstrate diminishing returns；25 轮 0 CRITICAL streak + 完整工具链已足。**纯文档清理 + retire 决策轮**，零代码 / 零数字变更 |
 
-**连续 25 轮 0 CRITICAL correctness 保持**（r35-r65）。下次滚动归档：**r70** → `_archive/EVOLUTION_r66_r70.md`。
+**连续 26 轮 0 CRITICAL correctness 保持**（r35-r66）。下次滚动归档：**r70** → `_archive/EVOLUTION_r66_r70.md`。
 
 ---
 

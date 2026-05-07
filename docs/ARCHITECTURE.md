@@ -14,7 +14,7 @@
 
 ### 这是个什么项目
 
-游戏汉化工具：把 Ren'Py / RPG Maker MV-MZ / CSV-JSONL / Unity XUnity 文件丢给 LLM 翻译，自动回填到原文件位置。**目标语言固定 zh 简体中文**（r52 BREAKING）。**零运行时依赖**（[ADR 0001](adr/0001-zero-third-party-dependencies.md)），纯 Python ≥ 3.10。
+游戏汉化工具：把 Ren'Py / RPG Maker MV-MZ / CSV-JSONL / Unity XUnity 文件丢给 LLM 翻译，自动回填到原文件位置。**目标语言固定 zh 简体中文**（r52 BREAKING）。**零运行时依赖**（项目 hard contract），纯 Python ≥ 3.10。
 
 ### 5 分钟跑通
 
@@ -32,7 +32,7 @@ python main.py --game-dir tests/tl_priority_mini/game --provider xai --dry-run
 
 ### 心理模型
 
-- **`engines/`** 是抽象层——它知道"游戏目录里有什么文件"。Ren'Py 引擎是**特殊的**（[ADR 0004](adr/0004-renpy-stays-on-dedicated-pipelines.md)）：它不走 `generic_pipeline` 6 阶段流水线，而是路由到 `translators/` 三条专用管线（tl-mode / direct / retranslate）。其他引擎（RPGM / CSV / Unity XUnity）才走 generic_pipeline。
+- **`engines/`** 是抽象层——它知道"游戏目录里有什么文件"。Ren'Py 引擎是**特殊的**（详见 [`docs/REFERENCE.md §13.2.1`](REFERENCE.md)）：它不走 `generic_pipeline` 6 阶段流水线，而是路由到 `translators/` 三条专用管线（tl-mode / direct / retranslate）。其他引擎（RPGM / CSV / Unity XUnity）才走 generic_pipeline。
 - **`translators/`** 是 Ren'Py 专用翻译实现——`DialogueEntry` 数据类型 + 跨文件去重 + 5 层 fallback + r53 W1 retry 并发 + r53 W3 LLM ID drift detection layer-6。
 - **`core/`** 是 LLM API 抽象 + 共享基础设施（API 客户端、连接池、prompts、术语表、translation_db、pickle 白名单 unpickler）。
 - **`safety/`** 是 cross-cutting helper（目前只有 r56 M2 移过来的 `file_safety.py` TOCTOU 防御）。
@@ -45,9 +45,10 @@ python main.py --game-dir tests/tl_priority_mini/game --provider xai --dry-run
 
 1. [`HANDOFF.md`](../HANDOFF.md)（≈250 行）— 当前轮次 + 已完成 + 下一步推荐 + Round N+1 关键约束（含所有 hard contracts）
 2. [`CLAUDE.md`](../CLAUDE.md)（≈150 行）— 10 大开发原则 + 模块图 + 维护规则 + 已知限制
-3. [`docs/adr/`](adr/)（5 份 ADR）— 关键架构决策 + 退役记录（zero-deps / zh-only / subprocess-plugin / RenPy-dedicated / safety-toplevel）
-4. 本文档 — 模块图 / 数据流 / 引擎扩展指南
-5. [`docs/REFERENCE.md`](REFERENCE.md) — 阈值常量 + 错误码 + 配置层级优先级 + 引擎路线图
+3. 本文档 — 模块图 / 数据流 / 引擎扩展指南
+4. [`docs/REFERENCE.md`](REFERENCE.md) — 阈值常量 + 错误码 + 配置层级优先级 + 引擎路线图
+
+> r66 retire ADR framework：架构决策已在 CLAUDE.md hard contracts + EVOLUTION 阶段叙事完整记录
 
 ### 本项目的几个特殊约束
 
@@ -55,7 +56,7 @@ python main.py --game-dir tests/tl_priority_mini/game --provider xai --dry-run
 - **byte-identical CLAUDE.md ↔ .cursorrules**：修 CLAUDE.md 必须 `cp CLAUDE.md .cursorrules`；CI guard 检查
 - **VERIFIED-CLAIMS 单一声称源**：测试数 / 文件数 / CI 步骤 / 断言点只在 [`HANDOFF.md`](../HANDOFF.md) 顶部 fenced block 声明；其他文档只能引用，pre-commit hook + CI 双层 enforce 不可漂移
 - **800 行 cap**：任何 .py 文件超 800 行 pre-commit hook 会 block；rule 强制拆分而非允许单文件膨胀
-- **零欠账闭合**（r50 起）：所有 audit findings 必须**同轮 fix**，无法 fix 的必须显式归 architectural decision（写入 CLAUDE.md / ADR）而不是 silent defer
+- **零欠账闭合**（r50 起）：所有 audit findings 必须**同轮 fix**，无法 fix 的必须显式归 architectural decision（写入 CLAUDE.md "已知限制"段）而不是 silent defer
 - **mypy enforce**（r57 T2 / r58 P1）：6 文件 hot-path scope + `engines/+safety/` 必须 0 errors；新文件加入前必须先 mypy clean
 - **ruff lint+format CI 门禁**（r58 P1）：`ruff check .` + `ruff format --check .` 必须 green；新 PR 不过这两关进不来
 
@@ -64,7 +65,7 @@ python main.py --game-dir tests/tl_priority_mini/game --provider xai --dry-run
 参考 [`CLAUDE.md`](../CLAUDE.md) "修改代码前的检查清单"段。最重要 3 条：
 
 1. **方案先行**：multi-file refactor 必须先 plan-first（CLAUDE.md 第 7 条）
-2. **零依赖**：禁引入第三方 runtime 依赖（CLAUDE.md 第 9 条 / [ADR 0001](adr/0001-zero-third-party-dependencies.md)）
+2. **零依赖**：禁引入第三方 runtime 依赖（CLAUDE.md 第 9 条）
 3. **测试先行**：跑 `python tests/test_all.py` 确认零回归再交差
 
 ### 如果你想加新引擎
@@ -80,22 +81,11 @@ python main.py --game-dir tests/tl_priority_mini/game --provider xai --dry-run
 
 ### 如果你不知道某段代码为什么这样写
 
-1. 看 [`_archive/EVOLUTION.md`](../_archive/EVOLUTION.md) — 按轮次叙事（r1 → 当前）
-2. 看 [`docs/adr/`](adr/) — 主题切片，跨轮的同主题决策汇总到一个 ADR
-3. 看 git blame — 每个 commit message 都尽量解释了 "why"
-4. 看 [`AUDIT.md`](../AUDIT.md)（永久入口；r64 S2 改名）— 当前 audit cycle；历史 cycle 归档在 [`_archive/AUDIT_R{N}.md`](../_archive/)
+1. 看 [`_archive/EVOLUTION.md`](../_archive/EVOLUTION.md) — 按轮次叙事（r1 → 当前）；详细历史在 r56-r60 / r61-r65 滚动归档文件
+2. 看 git blame / git log — 每个 commit message 都尽量解释了 "why"
+3. 看 [`CLAUDE.md`](../CLAUDE.md) "维护规则"段 — 15 条 hard contracts 含具体契约规则
 
-### 0.7 关键架构决策快查（11 ADRs，r65 P3 加索引）
-
-详见 [`docs/adr/README.md`](adr/README.md) 完整索引。按主题分组：
-
-- **依赖与 Python**：[ADR 0001](adr/0001-zero-third-party-dependencies.md) 零第三方依赖 / [ADR 0006](adr/0006-python-310-floor.md) Python ≥ 3.10 BREAKING
-- **目标语言**：[ADR 0002](adr/0002-zh-only-target-language.md) zh 简体中文 only BREAKING
-- **Plugin 隔离**：[ADR 0003](adr/0003-subprocess-sandbox-only-plugin.md) subprocess sandbox-only BREAKING
-- **Engine 设计**：[ADR 0004](adr/0004-renpy-stays-on-dedicated-pipelines.md) RenPy 不走 generic_pipeline / [ADR 0005](adr/0005-safety-as-toplevel-package.md) `safety/` 顶层 package
-- **CI 门禁**：[ADR 0007](adr/0007-mypy-enforce-scope.md) mypy 6 文件 scope / [ADR 0009](adr/0009-ruff-ci-gate.md) ruff lint+format gate
-- **安全**：[ADR 0008](adr/0008-path-traversal-guard.md) `_FORBIDDEN_PATH_PREFIXES`
-- **流程**：[ADR 0010](adr/0010-evolution-rolling-archive.md) EVOLUTION 5 轮滚动归档 / [ADR 0011](adr/0011-shared-config-helper.md) `_resolve_args_from_config` shared helper
+> r66 retire ADR framework：架构决策已在 CLAUDE.md hard contracts + EVOLUTION 阶段叙事 + git history 完整记录。原 `docs/adr/` 目录 + 11 ADR 文件已删除。
 
 ---
 

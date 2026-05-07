@@ -134,7 +134,7 @@ EOF
   * 自动从 `CHANGELOG.md` 抽取最近一轮 highlights 作为 release notes
   * `prerelease: true` 当 tag 含 `-`（如 `v2.0.0-beta`）
 
-**零依赖契约保持**：PyInstaller 是 dev / build-time 依赖，不算 runtime 依赖（[ADR 0001](docs/adr/0001-zero-third-party-dependencies.md)）。运行 `python build.py` 期间 pip install 的 PyInstaller 不污染 runtime artifact。
+**零依赖契约保持**：PyInstaller 是 dev / build-time 依赖，不算 runtime 依赖（项目 hard contract，见 CLAUDE.md "项目身份"段）。运行 `python build.py` 期间 pip install 的 PyInstaller 不污染 runtime artifact。
 
 ### Manual fallback
 

@@ -2,7 +2,7 @@
 
 > r59 O3 引入。本文目标：让新加入的人类贡献者**5 分钟内**知道项目能跑、知道下一步看什么。
 >
-> 想看完整架构 / 历史决策 / 路线图请去 [`ARCHITECTURE.md`](ARCHITECTURE.md) / [`adr/`](adr/) / [`../ROADMAP.md`](../ROADMAP.md)。本文是**入口**不是 reference。
+> 想看完整架构 / 历史决策 / 路线图请去 [`ARCHITECTURE.md`](ARCHITECTURE.md) / [`../_archive/EVOLUTION.md`](../_archive/EVOLUTION.md) / [`../ROADMAP.md`](../ROADMAP.md)。本文是**入口**不是 reference。
 
 ---
 
@@ -42,7 +42,7 @@ python main.py --help
 |------|------|
 | 知道项目当前状态 | [`HANDOFF.md`](../HANDOFF.md) — 当前轮次 + 已完成 + 推荐下一步 + Round N+1 约束 |
 | 理解 10 大开发原则 + 模块图 + 维护规则 | [`CLAUDE.md`](../CLAUDE.md) |
-| 找架构决策 / "为什么这样设计？" | [`docs/adr/`](adr/) — 见 [`docs/adr/README.md`](adr/README.md) 索引（r64 P2 改为索引引用避免数字 drift）|
+| 找架构决策 / "为什么这样设计？" | [`CLAUDE.md`](../CLAUDE.md) "维护规则"段 hard contracts 列表 + [`_archive/EVOLUTION.md`](../_archive/EVOLUTION.md) 阶段叙事（r66 retire ADR framework）|
 | 看完整模块图 / 三种翻译模式数据流 / 一键流水线 | [`docs/ARCHITECTURE.md`](ARCHITECTURE.md) — 顶部 §0 是给人类的 Quick Tour |
 | 调阈值常量 / 看错误码 / 看引擎路线图 | [`docs/REFERENCE.md`](REFERENCE.md) |
 | 看历史叙事（按轮次组织） | [`_archive/EVOLUTION.md`](../_archive/EVOLUTION.md) |
@@ -61,7 +61,7 @@ python main.py --help
 
 1. ✅ 跑 `python tests/test_all.py` 确认 baseline 绿
 2. ✅ 多文件 refactor 必须先 plan-first（提 issue / discussion 先讨论；CLAUDE.md 第 7 原则）
-3. ✅ 不引入第三方 runtime 依赖（[ADR 0001](adr/0001-zero-third-party-dependencies.md)）
+3. ✅ 不引入第三方 runtime 依赖（CLAUDE.md 第 9 条 hard contract）
 4. ✅ 文件不能超 800 行（pre-commit hook 会 block）
 5. ✅ 改 [`CLAUDE.md`](../CLAUDE.md) 必须 `cp CLAUDE.md .cursorrules`（byte-identical 契约）
 6. ✅ 数字声称只在 [`HANDOFF.md`](../HANDOFF.md) `VERIFIED-CLAIMS` 块（pre-commit hook 验证）
@@ -90,17 +90,17 @@ mypy --ignore-missing-imports --follow-imports=silent engines/ safety/
 ## 4. 心理模型 — 主要包做什么
 
 ```
-engines/        多引擎抽象层（Ren'Py 是特殊路径，详见 ADR 0004）
+engines/        多引擎抽象层（Ren'Py 是特殊路径，详见 docs/REFERENCE.md §13.2.1）
 translators/    Ren'Py 专用三条管线（tl / direct / retranslate）+ 5 层 fallback + r53 retry 优化
 core/           LLM API + 共享基础设施（连接池 / pickle 白名单 / 术语表 / translation_db）
 safety/         cross-cutting helper（TOCTOU 防御，r56 M2 从 core/ 移出独立）
 file_processor/ .rpy 文本处理（splitter / patcher / checker / validator）
 pipeline/       一键四阶段流水线（pilot → gate → full → catchup）
 tools/          独立 CLI 工具（RPA 解包 / rpyc 反编译 / lint 修复 / 校对编辑器）
-custom_engines/ 用户自定义翻译引擎插件（subprocess sandbox-only，详见 ADR 0003）
+custom_engines/ 用户自定义翻译引擎插件（subprocess sandbox-only，r52 C3 BREAKING；详见 CLAUDE.md "项目身份"段）
 scripts/        verify_docs_claims / install_hooks / migrate_db_v2_to_v1
 tests/          单元 / 集成 / fuzz / 红队 / 复杂 fixture round-trip 测试
-docs/           ARCHITECTURE / REFERENCE / adr/ / ONBOARDING（本文）
+docs/           ARCHITECTURE / REFERENCE / ONBOARDING（本文）
 _archive/       历史归档（EVOLUTION 按轮次叙事 / CHANGELOG_RECENT 最近 5 轮 detail）
 ```
 

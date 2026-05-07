@@ -4,6 +4,8 @@
 >
 > **本归档**包含 r56-r60 5 阶段的**完整原文叙事**，从主 [`EVOLUTION.md`](EVOLUTION.md) 抽出后保留作 reference。后续 round 如需查阅 r56-r60 详细内容，看本文件；主 EVOLUTION.md 仅留 5 行精简摘要。
 >
+> **r66 retire 注解**：本文叙事中提到的 `docs/adr/` 路径 / `[ADR NNNN]` 链接 / `AUDIT_R57.md` 在 r66 已**全部删除**（用户决策）。叙事保留是为历史完整；当前架构契约请直接看 [`CLAUDE.md`](../CLAUDE.md) "维护规则"段 hard contracts 列表。
+>
 > **下一次归档**触发 **r65**：归档 r61-r65 → `_archive/EVOLUTION_r61_r65.md`。
 >
 > **关联 commits**：

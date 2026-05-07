@@ -9,8 +9,8 @@
 # only needs to bump pyproject.toml::version and push a tag.
 #
 # PyInstaller is a build-time dependency, NOT a runtime dep, so it does
-# not violate ADR 0001 (zero third-party dependencies for the runtime
-# artifact). Each matrix job pip-installs PyInstaller fresh.
+# not violate the project's zero-runtime-deps hard contract (CLAUDE.md
+# "项目身份" + 维护规则 #9). Each matrix job pip-installs PyInstaller fresh.
 
 name: release
 
@@ -147,7 +147,7 @@ jobs:
             echo ""
             echo "- Verify SHA256 against \`SHA256SUMS.txt\` in this release"
             echo "- Project state at this tag: see \`HANDOFF.md\` VERIFIED-CLAIMS block"
-            echo "- Audit trail: \`AUDIT.md\` (active) + \`_archive/AUDIT_R{N}.md\` (closed cycles) + \`_archive/EVOLUTION.md\`"
+            echo "- Audit / evolution trail: \`_archive/EVOLUTION.md\` + git log"
           } > release-notes.md
           cat release-notes.md
 

@@ -53,7 +53,7 @@ Refs #
 - [ ] CHANGELOG.md 加了 round 段（含 brief 高亮）
 - [ ] HANDOFF.md "推荐 Round N+1 工作项"或"已完成"段更新
 - [ ] `_archive/EVOLUTION.md` 加了阶段段（如该轮独立成阶段）
-- [ ] 新建架构决策有对应 [`docs/adr/`](../docs/adr/) entry（如适用）
+- [ ] 新建架构决策已记录到 CLAUDE.md hard contracts 列表 + EVOLUTION 阶段叙事（r66 retire ADR framework）
 - [ ] README / docs/REFERENCE / docs/ARCHITECTURE 同步（如改了 user-facing 行为或常量）
 
 ## 测试覆盖 / Test coverage
