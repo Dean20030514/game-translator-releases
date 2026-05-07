@@ -333,7 +333,7 @@ label start:
         assert type_map["Go closer"] == "tt_action"
         assert type_map["Help needed"] == "notify"
         passed += 12
-        logger.info(f"[OK] extract_screen_strings: {passed} assertions")
+        logger.info(f"[OK] extract_screen_strings 自测通过：{passed} 断言")
     finally:
         os.unlink(tmp_path)
 
@@ -450,7 +450,7 @@ label start:
         assert "Notify" in new_content
         assert 'Jump("x")' in new_content
         passed += 4
-        logger.info(f"[OK] Notify replacement: {passed} assertions")
+        logger.info(f"[OK] Notify 替换自测通过：{passed} 断言")
     finally:
         os.unlink(tmp_path)
 
@@ -482,7 +482,7 @@ label start:
         assert '"关闭"' in new_content
         assert count == 2
         passed += 3
-        logger.info(f"[OK] multi tt.Action replacement: {passed} assertions")
+        logger.info(f"[OK] 多 tt.Action 替换自测通过：{passed} 断言")
     finally:
         os.unlink(tmp_path)
 

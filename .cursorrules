@@ -10,7 +10,7 @@
 
 **当前数字**（测试数 / 文件数 / CI 步骤 / 断言点）：见 [HANDOFF.md](HANDOFF.md) 顶部 `<!-- VERIFIED-CLAIMS-START -->` 块 — **单一声称源**。本文 prose 不再独立声称数字。
 
-**质量水位**：direct-mode 漏翻率 4.01%（仅适用 English source，详见下方"已知限制"）；tl-mode 翻译成功率 99.97%（r52 实测 The Tyrant 74098 entries / **99.991%**）；连续 18 轮 0 CRITICAL correctness（r35-r58）。Round 55 起新增 Unity XUnity 引擎覆盖 ~10% 用户场景。
+**质量水位**：direct-mode 漏翻率 4.01%（仅适用 English source，详见下方"已知限制"）；tl-mode 翻译成功率 99.97%（r52 实测 The Tyrant 74098 entries / **99.991%**）；连续 19 轮 0 CRITICAL correctness（r35-r59）。Round 55 起新增 Unity XUnity 引擎覆盖 ~10% 用户场景。
 
 ---
 
@@ -103,6 +103,8 @@ scripts/         verify_docs_claims.py / verify_workflow.py / install_hooks.sh
 - **目标语言**：r52 C4 BREAKING 后固定 zh 简体中文（多目标语言 5 层 contract + `core/lang_config.py` + `--target-lang` 已删除）
 - **`tools/` 散乱无共享 base**（r57 T4 architectural decision）：15 个 CLI tool 各自独立 entry，每个自己写 argparse + setup_logging + path validation。**故意保留**——`tools/` 是辅助而非 hot path，抽取共享 base 的 ROI 低于"最小改动"原则的 cost。如未来需要批量加 cross-tool feature（如 `--dry-run` for all），再 reconsider
 - **Logger 含 user-controlled vars（log injection 路径）**（r57 S3 architectural decision）：15 处 `logger.error(f"...{game_dir}...")` 之类。本地工具仅写 stdout / 文件日志，无集中日志系统（syslog / Sentry），**不构成 actionable finding**。如未来引入集中日志，需 sanitize user-controlled vars 中的换行符
+- **翻译质量持续验证**（r59 B2 architectural decision）：r52 实测 The Tyrant 99.991%（74098 entries）作为 reference baseline，但**没有 nightly benchmark / continuous quality gate**。决策保留现状：用户每次跑实际项目时人工 review 翻译质量；99.991% 是真实 production 数据而非 lab benchmark，加 nightly mock LLM regression test ROI 低（mock LLM 不能反映真实 LLM 行为漂移）。如未来用户报告"r57 后翻译质量明显下降"，再考虑加固定 fixture 的 quality gate
+- **Community 建设**（r59 O4 architectural decision）：当前无 GitHub Discussions / Discord / sponsor 入口 / contributor list。项目用户量小（小众游戏汉化工具），community 投入回报比低。决策保留现状；如未来出现"用户量持续增长 + 多人协作开发需求"再考虑开 Discussions + 设立 sponsor 入口
 
 ---
 

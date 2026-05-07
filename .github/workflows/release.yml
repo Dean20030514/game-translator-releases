@@ -1,0 +1,161 @@
+# r59 B1: Tag-triggered release workflow.
+#
+# Trigger: pushing a tag matching `v*` (e.g. `v1.1.0`, `v2.0.0-beta`).
+# Output: PyInstaller binaries for Windows + Linux + macOS, attached to a
+# GitHub Release auto-created from the tag.
+#
+# Why: r58 P2 RELEASE.md documented the manual release flow; this
+# workflow automates the PyInstaller + Release steps so a maintainer
+# only needs to bump pyproject.toml::version and push a tag.
+#
+# PyInstaller is a build-time dependency, NOT a runtime dep, so it does
+# not violate ADR 0001 (zero third-party dependencies for the runtime
+# artifact). Each matrix job pip-installs PyInstaller fresh.
+
+name: release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write   # required to create the GitHub Release
+
+jobs:
+  build:
+    name: Build ${{ matrix.os }} binary
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            artifact-name: linux
+            ext: ""
+          - os: windows-latest
+            artifact-name: windows
+            ext: ".exe"
+          - os: macos-latest
+            artifact-name: macos
+            ext: ""
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install PyInstaller
+        run: |
+          python -m pip install --upgrade pip
+          pip install pyinstaller
+
+      - name: Run smoke tests before building
+        run: python tests/test_all.py
+
+      - name: Run docs-claim verification
+        run: python scripts/verify_docs_claims.py --fast
+
+      - name: Build with build.py
+        run: python build.py
+
+      - name: Locate built artifact
+        id: locate
+        shell: bash
+        run: |
+          # build.py writes into dist/.  Pick whatever .exe / executable
+          # PyInstaller produced — the project name is "多引擎游戏汉化工具"
+          # on Windows and "MultiEngineTranslator" on others (handled by
+          # build.py).  We grab the first non-spec artifact.
+          cd dist
+          # Prefer .exe on Windows, the bare executable elsewhere
+          ARTIFACT=$(ls -1 | grep -v '\.spec$' | grep -v '\.tmp$' | head -1)
+          if [ -z "$ARTIFACT" ]; then
+            echo "ERROR: no PyInstaller artifact found in dist/"
+            ls -la
+            exit 1
+          fi
+          echo "artifact=$ARTIFACT" >> "$GITHUB_OUTPUT"
+          echo "Found artifact: $ARTIFACT"
+
+      - name: Upload artifact (per-OS)
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-${{ matrix.artifact-name }}
+          path: dist/${{ steps.locate.outputs.artifact }}
+          if-no-files-found: error
+          retention-days: 7
+
+  release:
+    name: Create GitHub Release
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download all build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Flatten artifacts directory
+        shell: bash
+        run: |
+          mkdir -p release-assets
+          # Each per-OS artifact downloaded to artifacts/release-<os>/<file>;
+          # rename so the GitHub Release attachment names are unique.
+          for dir in artifacts/release-*; do
+            os=$(basename "$dir" | sed 's/^release-//')
+            for f in "$dir"/*; do
+              base=$(basename "$f")
+              # Insert OS tag before extension if present
+              ext="${base##*.}"
+              stem="${base%.*}"
+              if [ "$ext" = "$base" ]; then
+                cp "$f" "release-assets/${stem}-${os}"
+              else
+                cp "$f" "release-assets/${stem}-${os}.${ext}"
+              fi
+            done
+          done
+          ls -la release-assets/
+
+      - name: Compute SHA256 sums
+        shell: bash
+        run: |
+          cd release-assets
+          sha256sum * > SHA256SUMS.txt
+          cat SHA256SUMS.txt
+
+      - name: Extract release notes from CHANGELOG
+        id: notes
+        shell: bash
+        run: |
+          # Pull the most-recent "Round NN" entry from CHANGELOG.md as
+          # the release body. Falls back to a generic note if parsing
+          # fails. Tag content can be edited in the GitHub UI after the
+          # release auto-creates.
+          {
+            echo "Auto-generated release for tag ${{ github.ref_name }}."
+            echo ""
+            echo "## Highlights"
+            echo ""
+            sed -n '/^## 最近 5 轮/,/^---/p' CHANGELOG.md | sed -n '2,/^- \*\*Round/p' | head -40
+            echo ""
+            echo "## Verification"
+            echo ""
+            echo "- Verify SHA256 against \`SHA256SUMS.txt\` in this release"
+            echo "- Project state at this tag: see \`HANDOFF.md\` VERIFIED-CLAIMS block"
+            echo "- Audit trail: \`AUDIT_R57.md\` (if present) + \`_archive/EVOLUTION.md\`"
+          } > release-notes.md
+          cat release-notes.md
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: ${{ github.ref_name }}
+          body_path: release-notes.md
+          files: release-assets/*
+          draft: true   # maintainer reviews + publishes manually
+          prerelease: ${{ contains(github.ref_name, '-') }}

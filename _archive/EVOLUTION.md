@@ -289,9 +289,29 @@
 
 **连续 18 轮 0 CRITICAL correctness 保持**（r35-r58）。
 
+## 阶段十八（r59）— 产品业务 + 组织知识维度全闭合 + 19th 0-CRITICAL Streak + AUDIT_R57.md 收尾
+
+6 phases（quick wins + B1 release.yml + ARCHITECTURE Quick Tour + ONBOARDING + B3 message + final docs sync），完成 [`AUDIT_R57.md`](../AUDIT_R57.md) 6 维度 23 findings 全闭合（r57: T1-T4 + S1-S4 / r58: A1-A3 + P1-P4 / **r59: B1-B4 + O1-O4**）。
+
+- **B1 — Release 自动化 GitHub Actions workflow**：[`.github/workflows/release.yml`](../.github/workflows/release.yml) ~150 行 — `on: push: tags: ['v*']` 触发；3 OS matrix（ubuntu-latest / windows-latest / macos-latest）；每 OS pre-build gate 跑 `tests/test_all.py` + `verify_docs_claims --fast`；`pip install pyinstaller` + `python build.py`；`actions/upload-artifact@v4` per-OS artifact；`release` job 用 `actions/download-artifact@v4` flatten + `sha256sum` 生成 SHA256SUMS.txt + 从 CHANGELOG.md sed 抽取最近一轮 highlights 作 release-notes.md + `softprops/action-gh-release@v2` 创建 **draft** Release（maintainer review 后 publish）；prerelease 自动判定（tag 含 `-`）；零依赖契约保持（PyInstaller 是 build-time，不算 runtime — [ADR 0001](../docs/adr/0001-zero-third-party-dependencies.md) 仍 hold）。RELEASE.md 同步更新反映自动化已实现。
+- **B2 — 翻译质量持续验证 retire to architectural decision**：r52 The Tyrant 99.991% 是真实 production 数据 vs lab benchmark；用户每次跑实际项目人工 review 比 nightly mock LLM regression 更有效；mock LLM 不能反映真实 LLM 漂移。CLAUDE.md "已知限制"段记录决策 + 重新评估条件（如未来用户报告 r57 后翻译质量下降，再考虑加固定 fixture 的 quality gate）。
+- **B3 — 错误信息中英一致化扫**：扫描结果 — production 代码含 275 处 logger 调用 / 46 distinct prefix（全英文 caps：`[ERROR]` `[WARN]` `[OK]` `[CONFIG]` `[XUAT]` `[TL-MODE]` 等）。审计原 finding 是"中英混用"，实际扫后发现 prefix 已一致（英文 caps 已成熟惯例 + grep 友好 + 跨平台终端兼容），仅 5 处 message body 含英文。Fix：(1) `core/runtime_hook_emitter.py:564` `"skip emit — translation_db empty"` → `"跳过运行时注入：translation_db 为空"`；(2) `core/runtime_hook_emitter.py:616` `"emit failed, continuing: %s"` → `"运行时注入生成失败，已跳过继续后续步骤: %s"`；(3-5) `translators/screen.py` 3 处 self-test counter `"[OK] X: N assertions"` → `"[OK] X 自测通过：N 断言"`。Prefix 全英文 caps 保持不动（已经 inline 文档化为成熟惯例）。
+- **B4 — README "免责声明 / Disclaimer" 段**：中英双段都加。中文段：项目 MIT 但翻译产物的法律地位（版权、合理使用、二次创作衍生作品边界）由使用者自行判断和承担；项目维护者不承担法律责任；翻译商业游戏前请确认授权或合理使用边界；解密游戏归档不在范围（[ADR 0004](../docs/adr/0004-renpy-stays-on-dedicated-pipelines.md)）；LLM API 费用由使用者承担；"瑞士军刀"比喻。英文段对应翻译。
+- **O1 — `docs/ARCHITECTURE.md §0 Quick Tour for Human Maintainers`**：新加 ~75 行 0 节（在原 §1 模块调用关系之前）。8 子节给**人类 maintainer**而不是 AI 用：(1) 这是个什么项目（一句话定位 + zh-only + 零依赖 + py3.10）；(2) 5 分钟跑通（git clone + test_all + dry-run + onboarding link）；(3) 心理模型（6 包功能简介，emphasize Ren'Py 是 ADR 0004 explicit 例外）；(4) 必读上下文按重要度排序（HANDOFF 250 行 / CLAUDE 150 行 / 5 ADR / 本文 / REFERENCE）；(5) 8 个特殊约束（NEVER push / byte-identical CLAUDE↔.cursorrules / VERIFIED-CLAIMS / 800-line cap / 零欠账闭合 / mypy enforce / ruff 门禁）；(6) 改动前 checklist (3 条最重要：plan-first / 零依赖 / 测试先行)；(7) 加新引擎 7 步指南（参考 r55 Unity XUnity）；(8) 找答案的索引（EVOLUTION 按轮次叙事 / adr/ 主题切片 / git blame / AUDIT_R57.md）。
+- **O2 — ROADMAP.md actionable backlog 验证**：r58 P2 创建时已抽取 internal HANDOFF backlog → 公开 ROADMAP.md（按用户视角分类：当前能力 / 短期 ROI 排序 / 中期方向 / 长期愿景 / 已 retire 完整列表）。r59 验证一致性：当前 actionable backlog（Godot + Kirikiri/TyranoBuilder）已 sync 到 ROADMAP § "短期路线图"。
+- **O3 — `docs/ONBOARDING.md` 新建 ~150 行**：6 子节（给**新加入的人类贡献者**用）— (0) 项目是什么（一句话定位 + 主要用户场景）；(1) 5 分钟跑通（含失败 fallback reminder）；(2) 我想做什么 → 看哪里（13 行索引表，从 HANDOFF / CLAUDE / ADR / ARCHITECTURE / REFERENCE / EVOLUTION / ROADMAP / CONTRIBUTING / SECURITY / RELEASE / Issue Templates / PR Template）；(3) 我想改代码 → 检查清单（9 项 + 最少跑 2 命令 + 装 ruff/mypy 后 4 命令）；(4) 心理模型（包结构 ASCII art）；(5) Troubleshooting（4 个常见问题：ImportError / docs claims drift / pre-commit hook block / 不要 bypass hook）；(6) 还有什么（maintainer / 主要语言 / hard contracts 数 / 0 CRITICAL streak）。
+- **O4 — Community 建设 retire to architectural decision**：项目用户量小（小众游戏汉化工具），Discussions / Discord / sponsor 入口 / contributor list ROI 低于维护成本。CLAUDE.md "已知限制"段记录 + 重新评估条件（如未来"用户量持续增长 + 多人协作开发需求"再考虑开 Discussions + 设立 sponsor 入口）。
+- **数字增量**：tests_total 494 unchanged（B3 仅修改字符串内容，0 新测试）; test_files 35 unchanged; ci_steps 36 unchanged（B1 release.yml 是 separate workflow file，不计入 test.yml::jobs.test.steps）; assertion_points 620 unchanged。**纯文档 + 流程 + 微调轮**。
+- **hard contracts 仍 15**（无新约束加入；r58 已加 #14 ruff 门禁 + #15 EVOLUTION 滚动归档）。
+- **AUDIT_R57.md 收尾**：23 findings 全闭合后，`AUDIT_R57.md` 文件保留作历史 reference（未来轮次可参考审计 framework）。下次类似 audit 应该写 `AUDIT_R<NN>.md` 新文件。
+
+**连续 19 轮 0 CRITICAL correctness 保持**（r35-r59）。
+
+**🔔 下一轮 r60**：触发首次 EVOLUTION 滚动归档（r58 P3 hard contract #15）。需要在 r60 docs sync commit 内完成：抽"阶段十六 (r56) → 阶段二十 (r60)" 5 个详细叙事到 `_archive/EVOLUTION_r56_r60.md` + 主 EVOLUTION 仅留摘要 + wc -l 减 ≥ 100 行。
+
 ---
 
-## 累积技术资产（r1-r58 视角）
+## 累积技术资产（r1-r59 视角）
 
 ### 翻译能力
 - 三种 Ren'Py 翻译模式（direct / tl / retranslate） + screen 补充

@@ -1,6 +1,6 @@
 # Release Process
 
-> **状态**：r58 P2 引入；当前为**手动流程**（PyInstaller 打包 + GitHub Release 上传）。未来如需自动化（GitHub Actions tag-trigger workflow），见本文末"自动化候选"段。
+> **状态**：r58 P2 引入手动流程；**r59 B1 加自动化** — `.github/workflows/release.yml` on `v*` tag push 触发 PyInstaller × 3 OS matrix + 上传 draft Release。本文同时保留手动 fallback 流程（自动化 fail 时可走）。
 
 ## 版本号管理
 
@@ -115,19 +115,26 @@ EOF
 ./多引擎游戏汉化工具.exe --game-dir <some-game> --dry-run
 ```
 
-## 自动化候选（r58+ backlog）
+## 自动化（r59 B1 已实现）
 
-当前 release 流程是手动；自动化候选见 [`AUDIT_R57.md`](AUDIT_R57.md) §B1：
+[`.github/workflows/release.yml`](.github/workflows/release.yml) 自动跑：
 
-> 加 GitHub Actions workflow on tag push → PyInstaller → 上传 .exe 到 Release。一次性投入 ~50 行 workflow yaml。
-
-**实现要点**（如未来推进）：
-- `.github/workflows/release.yml` 触发条件 `on: push: tags: ['v*']`
+- 触发条件 `on: push: tags: ['v*']`
 - matrix `[ubuntu-latest, windows-latest, macos-latest]`
-- 每个 OS 装 PyInstaller + 跑 `python build.py`
-- 上传 artifact 到 `actions/upload-artifact@v4`
-- 全部 OS done 后 `softprops/action-gh-release@v2` 创建 Release + attach 所有 OS binary
-- **零依赖契约**：PyInstaller 是 dev / build-time dependency，不算 runtime 依赖（CLAUDE.md 第 9 原则）
+- 每个 OS 跑 `python tests/test_all.py` + `python scripts/verify_docs_claims.py --fast` 作 pre-build gate
+- `pip install pyinstaller` + `python build.py` 生成 binary
+- `actions/upload-artifact@v4` 上传 per-OS artifact
+- `softprops/action-gh-release@v2` 创建 **draft** Release（maintainer review 后手动 publish），含：
+  * 3 个 OS binary（按 OS 后缀重命名）
+  * `SHA256SUMS.txt`（每个 binary 的 sha256 摘要）
+  * 自动从 `CHANGELOG.md` 抽取最近一轮 highlights 作为 release notes
+  * `prerelease: true` 当 tag 含 `-`（如 `v2.0.0-beta`）
+
+**零依赖契约保持**：PyInstaller 是 dev / build-time 依赖，不算 runtime 依赖（[ADR 0001](docs/adr/0001-zero-third-party-dependencies.md)）。运行 `python build.py` 期间 pip install 的 PyInstaller 不污染 runtime artifact。
+
+### Manual fallback
+
+如果 GitHub Actions 中断或自动化 fail，走上文"发布流程（手动）"5 步。
 
 ## 发布后
 

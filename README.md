@@ -139,6 +139,17 @@ python main.py --engine unity_xunity --game-dir "E:\Games\UnityGame\Translation"
 
 [MIT License](LICENSE)
 
+### 免责声明（r58 B4）
+
+本项目是**翻译辅助工具**，本身遵循 [MIT License](LICENSE)。**使用本工具产出的翻译文件、修改后的游戏脚本、Mod 分发包等内容的法律地位（如版权、合理使用、二次创作衍生作品边界等）由使用者自行判断和承担**：
+
+- 项目维护者不对使用者的翻译产物承担任何法律责任
+- 翻译商业游戏前请确认你已获得授权或符合当地法律下的合理使用边界
+- 加密游戏归档（含 RPA / RGSS）的解包能力不在本项目范围内（[r54 retire 决策](docs/adr/0004-renpy-stays-on-dedicated-pipelines.md)）；如需处理加密资源请确认拥有合法权限
+- 使用本工具调用商业 LLM API 产生的费用由使用者承担
+
+简而言之：**这是一把翻译用的瑞士军刀，怎么用 / 用在哪由你决定，后果你自负**。
+
 ---
 
 ## English
@@ -269,3 +280,21 @@ Full parameter list: `python main.py --help`
 ### License
 
 [MIT License](LICENSE)
+
+### Disclaimer (r58 B4)
+
+This project is a **translation-assistance tool** licensed under
+[MIT](LICENSE). **The legal status of any output produced with this
+tool — translated text, modified game scripts, redistributable mod
+packages, etc. — is the user's responsibility to determine**:
+
+- Project maintainers assume no liability for user-produced translations
+- Verify your licence / fair-use boundary before translating commercial
+  games
+- Decryption of encrypted archives (RPA / RGSS) is out of scope (see
+  [`docs/adr/0004`](docs/adr/0004-renpy-stays-on-dedicated-pipelines.md));
+  if you process encrypted resources, confirm you have lawful authority
+- LLM-API costs are the user's responsibility
+
+In short: this is a Swiss-army-knife for translation. **What you build
+with it, and how, is up to you — and so are the consequences**.

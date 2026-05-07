@@ -8,6 +8,85 @@
 
 ---
 
+## 0. Quick Tour for Human Maintainers（r59 O1 — 人类视角入口）
+
+> 这一段是给**新加入的人类维护者**写的，不是给 AI 写的。如果你刚 clone 完仓库不知道从哪里下手，先读这一段；其他章节是 reference，需要时查。
+
+### 这是个什么项目
+
+游戏汉化工具：把 Ren'Py / RPG Maker MV-MZ / CSV-JSONL / Unity XUnity 文件丢给 LLM 翻译，自动回填到原文件位置。**目标语言固定 zh 简体中文**（r52 BREAKING）。**零运行时依赖**（[ADR 0001](adr/0001-zero-third-party-dependencies.md)），纯 Python ≥ 3.10。
+
+### 5 分钟跑通
+
+```bash
+# 1. 克隆 + 跑单元测试看是否绿
+git clone https://github.com/Dean20030514/Multi-Engine-Game-Translator
+cd Multi-Engine-Game-Translator
+python tests/test_all.py    # 应输出 ALL XXX TESTS PASSED
+
+# 2. dry-run（不调 API）— 用项目自带的小 fixture
+python main.py --game-dir tests/tl_priority_mini/game --provider xai --dry-run
+
+# 3. 看 docs/ONBOARDING.md（r59 O3 引入）— 5 分钟快速向导
+```
+
+### 心理模型
+
+- **`engines/`** 是抽象层——它知道"游戏目录里有什么文件"。Ren'Py 引擎是**特殊的**（[ADR 0004](adr/0004-renpy-stays-on-dedicated-pipelines.md)）：它不走 `generic_pipeline` 6 阶段流水线，而是路由到 `translators/` 三条专用管线（tl-mode / direct / retranslate）。其他引擎（RPGM / CSV / Unity XUnity）才走 generic_pipeline。
+- **`translators/`** 是 Ren'Py 专用翻译实现——`DialogueEntry` 数据类型 + 跨文件去重 + 5 层 fallback + r53 W1 retry 并发 + r53 W3 LLM ID drift detection layer-6。
+- **`core/`** 是 LLM API 抽象 + 共享基础设施（API 客户端、连接池、prompts、术语表、translation_db、pickle 白名单 unpickler）。
+- **`safety/`** 是 cross-cutting helper（目前只有 r56 M2 移过来的 `file_safety.py` TOCTOU 防御）。
+- **`file_processor/`** 是 .rpy 文本处理（splitter / patcher / checker / validator）。
+- **`pipeline/`** 是一键四阶段流水线（pilot → gate → full → catchup）。
+
+### 必读上下文
+
+按重要度排序：
+
+1. [`HANDOFF.md`](../HANDOFF.md)（≈250 行）— 当前轮次 + 已完成 + 下一步推荐 + Round N+1 关键约束（含所有 hard contracts）
+2. [`CLAUDE.md`](../CLAUDE.md)（≈150 行）— 10 大开发原则 + 模块图 + 维护规则 + 已知限制
+3. [`docs/adr/`](adr/)（5 份 ADR）— 关键架构决策 + 退役记录（zero-deps / zh-only / subprocess-plugin / RenPy-dedicated / safety-toplevel）
+4. 本文档 — 模块图 / 数据流 / 引擎扩展指南
+5. [`docs/REFERENCE.md`](REFERENCE.md) — 阈值常量 + 错误码 + 配置层级优先级 + 引擎路线图
+
+### 本项目的几个特殊约束
+
+- **NEVER push 政策**：CLAUDE.md global rule 禁止 AI 助手 push；任何 commit 都由人类 maintainer 决定何时 push
+- **byte-identical CLAUDE.md ↔ .cursorrules**：修 CLAUDE.md 必须 `cp CLAUDE.md .cursorrules`；CI guard 检查
+- **VERIFIED-CLAIMS 单一声称源**：测试数 / 文件数 / CI 步骤 / 断言点只在 [`HANDOFF.md`](../HANDOFF.md) 顶部 fenced block 声明；其他文档只能引用，pre-commit hook + CI 双层 enforce 不可漂移
+- **800 行 cap**：任何 .py 文件超 800 行 pre-commit hook 会 block；rule 强制拆分而非允许单文件膨胀
+- **零欠账闭合**（r50 起）：所有 audit findings 必须**同轮 fix**，无法 fix 的必须显式归 architectural decision（写入 CLAUDE.md / ADR）而不是 silent defer
+- **mypy enforce**（r57 T2 / r58 P1）：6 文件 hot-path scope + `engines/+safety/` 必须 0 errors；新文件加入前必须先 mypy clean
+- **ruff lint+format CI 门禁**（r58 P1）：`ruff check .` + `ruff format --check .` 必须 green；新 PR 不过这两关进不来
+
+### 改动前的检查清单
+
+参考 [`CLAUDE.md`](../CLAUDE.md) "修改代码前的检查清单"段。最重要 3 条：
+
+1. **方案先行**：multi-file refactor 必须先 plan-first（CLAUDE.md 第 7 条）
+2. **零依赖**：禁引入第三方 runtime 依赖（CLAUDE.md 第 9 条 / [ADR 0001](adr/0001-zero-third-party-dependencies.md)）
+3. **测试先行**：跑 `python tests/test_all.py` 确认零回归再交差
+
+### 如果你想加新引擎
+
+参考 r55 Unity XUnity 接入路径（详见 [本文档 §6](#6-引擎抽象层)）：
+1. `engines/your_engine.py` 实现 `EngineBase.{detect, extract_texts, write_back}`
+2. `engines/engine_base.py` 加 `YOUR_PROFILE` 常量
+3. `engines/engine_detector.py` 加 `EngineType.YOUR` + `_MANUAL_MAP` + `create_engine` 分支
+4. `engines/__init__.py` export profile
+5. `main.py` argparse choices 加 `your_engine`
+6. `tests/test_your_engine.py` 至少 round-trip byte-identical 测试 + ≥ 1 集成测试
+7. CHANGELOG / EVOLUTION / HANDOFF / docs/REFERENCE 同步
+
+### 如果你不知道某段代码为什么这样写
+
+1. 看 [`_archive/EVOLUTION.md`](../_archive/EVOLUTION.md) — 按轮次叙事（r1 → 当前）
+2. 看 [`docs/adr/`](adr/) — 主题切片，跨轮的同主题决策汇总到一个 ADR
+3. 看 git blame — 每个 commit message 都尽量解释了 "why"
+4. 看 [`AUDIT_R57.md`](../AUDIT_R57.md)（如果还存在）— 6 维度审计的完整 findings + 决策路径
+
+---
+
 ## 1. 模块调用关系
 
 ```

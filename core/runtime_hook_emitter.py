@@ -561,7 +561,7 @@ def emit_if_requested(
     try:
         entries = getattr(translation_db, "entries", None)
         if not entries:
-            logger.info("[TL-INJECT] skip emit — translation_db empty")
+            logger.info("[TL-INJECT] 跳过运行时注入：translation_db 为空")
             return
         output_game_dir = Path(output_dir) / "game"
         # Round 32 Subtask A: mirror the Python-side UI-button whitelist
@@ -613,4 +613,4 @@ def emit_if_requested(
             font_config=font_config_dict,
         )
     except (OSError, ValueError, FileNotFoundError) as e:
-        logger.warning("[TL-INJECT] emit failed, continuing: %s", e)
+        logger.warning("[TL-INJECT] 运行时注入生成失败，已跳过继续后续步骤: %s", e)
