@@ -1,0 +1,18 @@
+# Published by hand: docs/ai/RELEASE_v0.8.0_PUBLISH.md section 6.3.
+name: 功能建议 / 使用疑问
+description: 希望支持的引擎、改进的体验或新功能；不知道怎么用、想问支不支持某个游戏也可以在这里问
+title: "[建议] "
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: need
+    attributes:
+      label: 想解决什么问题
+      description: 你在翻译哪类游戏、卡在哪一步、现在怎么凑合的。
+    validations:
+      required: true
+  - type: textarea
+    id: wish
+    attributes:
+      label: 希望的功能或改进（可选）
+      description: 具体描述期望的行为；相关引擎、游戏样例、截图也可以放这里。

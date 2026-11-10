@@ -1,0 +1,46 @@
+# Published by hand: docs/ai/RELEASE_v0.8.0_PUBLISH.md section 6.3.
+name: 问题反馈
+description: 翻译某个游戏时报错、崩溃或结果不对，回写后进游戏没变化，或者程序打不开
+title: "[Bug] "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        **请不要贴 API key。** 只需要填两项：出了什么问题，和诊断信息。
+        不方便用 GitHub 的话，可以把同样的内容发到 QQ 群 1047676453。
+  - type: textarea
+    id: problem
+    attributes:
+      label: 出了什么问题
+      description: |
+        做到哪一步出的问题（添加项目、费用预估、翻译中、校对、回写、回写后进游戏），界面上的红色报错原文。
+        「测试连接」的报错里可能有账号或订阅信息，贴之前看一眼。
+    validations:
+      required: true
+  - type: textarea
+    id: diagnostics
+    attributes:
+      label: 诊断信息
+      description: |
+        翻译任务失败：在失败的任务上点「复制问题报告」，粘贴到这里。
+        其他问题：到「配置」页「问题反馈与诊断」点「复制诊断信息」，粘贴到这里。
+        程序打不开：在「启动失败」对话框里按 Ctrl+C，粘贴到这里，再写上下载的压缩包名（例：GameTranslator-v0.8.0-win64.zip）。
+        什么都复制不了（例如 Windows 自己弹窗说缺少某个 .dll）：写「无」，把那个弹窗截图放到最下面一栏。
+      render: text
+    validations:
+      required: true
+  - type: input
+    id: game-files
+    attributes:
+      label: 游戏目录里有哪些文件（可选）
+      description: 添加项目失败或扫出 0 条时请填：游戏根目录或 game/ 文件夹里有哪些后缀的文件。
+      placeholder: 例：有 .rpy 和 .rpyc / 只有 .rpa 和 .rpyc / data/*.json / .rgss3a / .xp3
+  - type: textarea
+    id: extra
+    attributes:
+      label: 截图或日志文件（可选）
+      description: |
+        可以把截图拖到这里，截图前确认没有露出 API key。
+        回写后进游戏没变化：在回写页点「下载回写摘要(JSON)」，把下载的文件拖到这里。
+        程序打不开时，把 %APPDATA%\game-translator\logs 里的 gt.log 拖到这里；发送前看一眼，里面可能有游戏所在的文件夹路径。
